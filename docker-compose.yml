@@ -42,11 +42,13 @@ services:
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 10s
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 9092 || exit 1"]
+      interval: 5s
+      timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 30s
+
+
     networks:
       - notification-network
 

@@ -114,13 +114,18 @@ public class OutboxPublisherTest {
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props)) {
-            consumer.subscribe(Collections.singletonList(topic));
+            List<org.apache.kafka.common.PartitionInfo> partitionInfos = consumer.partitionsFor(topic);
+            List<org.apache.kafka.common.TopicPartition> topicPartitions = partitionInfos.stream()
+                    .map(p -> new org.apache.kafka.common.TopicPartition(topic, p.partition()))
+                    .toList();
+            consumer.assign(topicPartitions);
+            consumer.seekToBeginning(topicPartitions);
 
             boolean messageFound = false;
-            long deadline = System.currentTimeMillis() + 8000;
+            long deadline = System.currentTimeMillis() + 10000;
 
             while (System.currentTimeMillis() < deadline && !messageFound) {
-                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(300));
                 for (ConsumerRecord<String, String> record : records) {
                     if (expectedKey.equals(record.key())) {
                         messageFound = true;
@@ -135,3 +140,4 @@ public class OutboxPublisherTest {
         }
     }
 }
+

@@ -6,6 +6,9 @@ import com.notification.domain.AttemptStatus;
 import com.notification.domain.Notification;
 import com.notification.domain.NotificationAttempt;
 import com.notification.domain.NotificationStatus;
+import com.notification.provider.NotificationProvider;
+import com.notification.provider.ProviderRegistry;
+import com.notification.provider.ProviderSendResult;
 import com.notification.repository.NotificationAttemptRepository;
 import com.notification.repository.NotificationRepository;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -14,6 +17,7 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -26,6 +30,9 @@ public class NotificationProcessor {
 
     @Inject
     NotificationAttemptRepository notificationAttemptRepository;
+
+    @Inject
+    ProviderRegistry providerRegistry;
 
     @Inject
     ObjectMapper objectMapper;
@@ -85,46 +92,93 @@ public class NotificationProcessor {
                 LOG.debugf("Processing notification [%s] (attempt #%d, channel: %s, recipient: %s)",
                         notification.getId(), attemptNumber, notification.getChannel(), notification.getRecipient());
 
-                // In IMP-10: Basic delivery lifecycle execution
-                // Future phases will delegate to actual Provider Clients, Rate Limiters, etc.
+                // Resolve provider from registry
+                Optional<NotificationProvider> providerOpt = providerRegistry.getProviderForChannel(notification.getChannel());
+                if (providerOpt.isEmpty()) {
+                    String errorMsg = "No provider available for channel: " + notification.getChannel();
+                    LOG.errorf("Notification [%s] failed: %s", notificationId, errorMsg);
+
+                    OffsetDateTime failedAt = OffsetDateTime.now();
+                    notification.setStatus(NotificationStatus.FAILED);
+                    notification.setRetryCount(attemptNumber);
+                    notification.setUpdatedAt(failedAt);
+
+                    NotificationAttempt attempt = new NotificationAttempt();
+                    attempt.setId(UUID.randomUUID());
+                    attempt.setNotification(notification);
+                    attempt.setProvider(notification.getProvider());
+                    attempt.setAttemptNumber(attemptNumber);
+                    attempt.setStatus(AttemptStatus.FAILED);
+                    attempt.setErrorMessage(errorMsg);
+                    attempt.setAttemptedAt(attemptedAt);
+                    attempt.setCompletedAt(failedAt);
+
+                    notificationAttemptRepository.persist(attempt);
+                    return;
+                }
+
+                NotificationProvider provider = providerOpt.get();
+                ProviderSendResult sendResult = provider.send(notification);
                 OffsetDateTime completedAt = OffsetDateTime.now();
 
-                // 1. Update Notification status to DELIVERED
-                notification.setStatus(NotificationStatus.DELIVERED);
-                notification.setUpdatedAt(completedAt);
+                if (sendResult.isSuccess()) {
+                    // Update Notification status to DELIVERED
+                    notification.setStatus(NotificationStatus.DELIVERED);
+                    notification.setUpdatedAt(completedAt);
 
-                // 2. Create and persist successful NotificationAttempt
-                NotificationAttempt attempt = new NotificationAttempt();
-                attempt.setId(UUID.randomUUID());
-                attempt.setNotification(notification);
-                attempt.setProvider(notification.getProvider());
-                attempt.setAttemptNumber(attemptNumber);
-                attempt.setStatus(AttemptStatus.SUCCESS);
-                attempt.setErrorMessage(null);
-                attempt.setAttemptedAt(attemptedAt);
-                attempt.setCompletedAt(completedAt);
+                    // Create successful NotificationAttempt
+                    NotificationAttempt attempt = new NotificationAttempt();
+                    attempt.setId(UUID.randomUUID());
+                    attempt.setNotification(notification);
+                    attempt.setProvider(notification.getProvider());
+                    attempt.setAttemptNumber(attemptNumber);
+                    attempt.setStatus(AttemptStatus.SUCCESS);
+                    attempt.setErrorMessage(null);
+                    attempt.setAttemptedAt(attemptedAt);
+                    attempt.setCompletedAt(completedAt);
 
-                notificationAttemptRepository.persist(attempt);
+                    notificationAttemptRepository.persist(attempt);
 
-                LOG.infof("Notification [%s] successfully DELIVERED on attempt #%d", notificationId, attemptNumber);
+                    LOG.infof("Notification [%s] successfully DELIVERED via provider [%s] on attempt #%d",
+                            notificationId, provider.getName(), attemptNumber);
+                } else {
+                    // Update Notification status to FAILED
+                    notification.setStatus(NotificationStatus.FAILED);
+                    notification.setRetryCount(attemptNumber);
+                    notification.setUpdatedAt(completedAt);
+
+                    // Create failed NotificationAttempt
+                    NotificationAttempt attempt = new NotificationAttempt();
+                    attempt.setId(UUID.randomUUID());
+                    attempt.setNotification(notification);
+                    attempt.setProvider(notification.getProvider());
+                    attempt.setAttemptNumber(attemptNumber);
+                    attempt.setStatus(AttemptStatus.FAILED);
+                    attempt.setErrorMessage(sendResult.getErrorMessage());
+                    attempt.setAttemptedAt(attemptedAt);
+                    attempt.setCompletedAt(completedAt);
+
+                    notificationAttemptRepository.persist(attempt);
+
+                    LOG.warnf("Notification [%s] delivery FAILED via provider [%s] on attempt #%d: %s",
+                            notificationId, provider.getName(), attemptNumber, sendResult.getErrorMessage());
+                }
             } catch (Exception ex) {
-                LOG.errorf(ex, "Failed to process notification [%s] on attempt #%d", notificationId, attemptNumber);
+                LOG.errorf(ex, "Unexpected error processing notification [%s] on attempt #%d", notificationId, attemptNumber);
 
                 OffsetDateTime failedAt = OffsetDateTime.now();
 
-                // Update notification for retry handling
                 notification.setStatus(NotificationStatus.FAILED);
                 notification.setRetryCount(attemptNumber);
                 notification.setUpdatedAt(failedAt);
 
-                // Record failed attempt
                 NotificationAttempt attempt = new NotificationAttempt();
                 attempt.setId(UUID.randomUUID());
                 attempt.setNotification(notification);
                 attempt.setProvider(notification.getProvider());
                 attempt.setAttemptNumber(attemptNumber);
                 attempt.setStatus(AttemptStatus.FAILED);
-                attempt.setErrorMessage(ex.getMessage());
+                attempt.setErrorMessage(ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName());
                 attempt.setAttemptedAt(attemptedAt);
                 attempt.setCompletedAt(failedAt);
 

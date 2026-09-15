@@ -13,8 +13,10 @@ import com.notification.domain.OutboxStatus;
 import com.notification.repository.NotificationAttemptRepository;
 import com.notification.repository.NotificationRepository;
 import com.notification.repository.OutboxEventRepository;
+import com.notification.provider.MockNotificationProvider;
 import com.notification.worker.NotificationProcessor;
 import com.notification.worker.OutboxPublisher;
+
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -49,7 +51,17 @@ public class NotificationWorkerTest {
     NotificationProcessor notificationProcessor;
 
     @Inject
+    MockNotificationProvider mockNotificationProvider;
+
+    @Inject
     ObjectMapper objectMapper;
+
+    @org.junit.jupiter.api.BeforeEach
+    public void setup() {
+        mockNotificationProvider.setEnabled(true);
+        mockNotificationProvider.resetSimulationMode();
+    }
+
 
     @Test
     public void testEndToEndFlow_NotificationCreation_To_WorkerDelivery() throws Exception {
