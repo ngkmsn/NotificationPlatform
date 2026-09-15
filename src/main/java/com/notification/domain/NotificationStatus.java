@@ -5,6 +5,7 @@ public enum NotificationStatus {
     QUEUED,
     PROCESSING,
     DELIVERED,
+    FAILED,
     RETRYING,
     DEAD_LETTER,
     CANCELLED

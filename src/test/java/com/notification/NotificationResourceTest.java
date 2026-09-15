@@ -79,6 +79,7 @@ public class NotificationResourceTest {
         assertEquals("Your payment has been completed.", savedNotification.getContent());
         assertEquals(Priority.HIGH, savedNotification.getPriority());
         assertEquals(NotificationStatus.QUEUED, savedNotification.getStatus());
+        assertEquals(0, savedNotification.getRetryCount());
         assertNotNull(savedNotification.getCreatedAt());
         assertNotNull(savedNotification.getUpdatedAt());
 
@@ -103,7 +104,38 @@ public class NotificationResourceTest {
         assertEquals("Your payment has been completed.", payload.get("content").asText());
         assertEquals("HIGH", payload.get("priority").asText());
         assertEquals("QUEUED", payload.get("status").asText());
+        assertEquals(0, payload.get("retryCount").asInt());
         assertNotNull(payload.get("createdAt"));
+    }
+
+    @Test
+    public void testCreateNotification_ValidInApp_Success() {
+        String requestBody = """
+                {
+                  "recipient": "user-12345",
+                  "channel": "IN_APP",
+                  "content": "You received a new message",
+                  "priority": "NORMAL"
+                }
+                """;
+
+        String idStr = given()
+                .contentType(ContentType.JSON)
+                .body(requestBody)
+                .when()
+                .post("/api/v1/notifications")
+                .then()
+                .statusCode(202)
+                .body("id", notNullValue())
+                .body("status", is("QUEUED"))
+                .extract()
+                .path("id");
+
+        UUID notificationId = UUID.fromString(idStr);
+        Notification saved = notificationRepository.findById(notificationId);
+        assertNotNull(saved);
+        assertEquals(Channel.IN_APP, saved.getChannel());
+        assertEquals(0, saved.getRetryCount());
     }
 
     @Test

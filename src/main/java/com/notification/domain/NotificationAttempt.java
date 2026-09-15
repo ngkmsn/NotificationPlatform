@@ -2,6 +2,8 @@ package com.notification.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -20,17 +22,25 @@ public class NotificationAttempt {
     @JoinColumn(name = "notification_id", nullable = false)
     private Notification notification;
 
+    @ManyToOne
+    @JoinColumn(name = "provider_id")
+    private Provider provider;
+
     @Column(name = "attempt_number", nullable = false)
     private Integer attemptNumber;
 
-    @Column(nullable = false, length = 50)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private AttemptStatus status;
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt;
+    @Column(name = "attempted_at", nullable = false)
+    private OffsetDateTime attemptedAt;
+
+    @Column(name = "completed_at")
+    private OffsetDateTime completedAt;
 
     public NotificationAttempt() {
     }
@@ -51,6 +61,14 @@ public class NotificationAttempt {
         this.notification = notification;
     }
 
+    public Provider getProvider() {
+        return provider;
+    }
+
+    public void setProvider(Provider provider) {
+        this.provider = provider;
+    }
+
     public Integer getAttemptNumber() {
         return attemptNumber;
     }
@@ -59,11 +77,11 @@ public class NotificationAttempt {
         this.attemptNumber = attemptNumber;
     }
 
-    public String getStatus() {
+    public AttemptStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(AttemptStatus status) {
         this.status = status;
     }
 
@@ -75,11 +93,19 @@ public class NotificationAttempt {
         this.errorMessage = errorMessage;
     }
 
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
+    public OffsetDateTime getAttemptedAt() {
+        return attemptedAt;
     }
 
-    public void setCreatedAt(OffsetDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setAttemptedAt(OffsetDateTime attemptedAt) {
+        this.attemptedAt = attemptedAt;
+    }
+
+    public OffsetDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(OffsetDateTime completedAt) {
+        this.completedAt = completedAt;
     }
 }

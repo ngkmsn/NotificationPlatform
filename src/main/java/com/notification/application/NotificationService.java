@@ -76,6 +76,7 @@ public class NotificationService {
         notification.setContent(request.getContent());
         notification.setPriority(priority);
         notification.setStatus(NotificationStatus.QUEUED);
+        notification.setRetryCount(0);
         notification.setCreatedAt(OffsetDateTime.now());
         notification.setUpdatedAt(OffsetDateTime.now());
 
@@ -112,6 +113,8 @@ public class NotificationService {
             payloadMap.put("content", notification.getContent());
             payloadMap.put("priority", notification.getPriority().name());
             payloadMap.put("status", notification.getStatus().name());
+            payloadMap.put("retryCount", notification.getRetryCount());
+            payloadMap.put("providerId", notification.getProvider() != null ? notification.getProvider().getId().toString() : null);
             payloadMap.put("createdAt", notification.getCreatedAt().toString());
             return objectMapper.writeValueAsString(payloadMap);
         } catch (JsonProcessingException e) {

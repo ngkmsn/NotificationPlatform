@@ -4,5 +4,5 @@ public enum Channel {
     EMAIL,
     SMS,
     PUSH,
-    INTERNAL
+    IN_APP
 }

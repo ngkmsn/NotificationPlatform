@@ -63,6 +63,12 @@
             <artifactId>quarkus-smallrye-health</artifactId>
         </dependency>
 
+        <!-- Scheduler for Outbox Poller -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
+
         <!-- Kafka -->
         <dependency>
             <groupId>io.quarkus</groupId>
