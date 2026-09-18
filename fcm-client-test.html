@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase FCM Client Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 24px;
+      background: #f8fafc;
+      color: #0f172a;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    h1 { color: #2563eb; }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 16px;
+      border: 1px solid #e2e8f0;
+    }
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    #tokenDisplay {
+      word-break: break-all;
+      background: #f1f5f9;
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+      margin-top: 12px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-success { background: #dcfce7; color: #166534; }
+  </style>
+</head>
+<body>
+  <h1>🔥 Firebase Push Notification Test Client</h1>
+  <p>Trang này dùng để nhận thử Push Notification trên máy của bạn.</p>
+
+  <div class="card">
+    <h3>1. Trạng thái Backend & Firebase</h3>
+    <p><span class="badge badge-success">Google FCM Cloud Connected</span> Project: <b>notification-a0c90</b></p>
+    <p>Backend đã xác thực OAuth2 thành công với Google Cloud API.</p>
+  </div>
+
+  <div class="card">
+    <h3>2. Cách gửi thử Push Notification tới thiết bị thật</h3>
+    <p>Khi bạn có FCM Token của điện thoại hoặc app web, bạn có thể gửi thử ngay từ terminal bằng lệnh:</p>
+    <div id="tokenDisplay">
+      mvn test -Dtest=FirebaseTestCli -Dfcm.token="<b>&lt;DÁN_TOKEN_VÀO_ĐÂY&gt;</b>"
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>3. Hoặc gửi qua REST API của Notification Platform</h3>
+    <div id="tokenDisplay">
+curl -X POST http://localhost:8080/api/v1/notifications \<br>
+&nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+&nbsp;&nbsp;-d '{<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"recipient": "<b>&lt;FCM_DEVICE_TOKEN&gt;</b>",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"channel": "PUSH",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"subject": "Chào bạn!",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"content": "Push Notification qua Firebase đã hoạt động!",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;"priority": "HIGH"<br>
+&nbsp;&nbsp;}'
+    </div>
+  </div>
+</body>
+</html>

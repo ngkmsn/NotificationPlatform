@@ -21,10 +21,19 @@ public class ProviderRegistry {
             return Optional.empty();
         }
 
+        NotificationProvider fallbackMock = null;
         for (NotificationProvider provider : providers) {
             if (provider.supportsChannel(channel)) {
-                return Optional.of(provider);
+                if (provider instanceof MockNotificationProvider) {
+                    fallbackMock = provider;
+                } else {
+                    return Optional.of(provider);
+                }
             }
+        }
+
+        if (fallbackMock != null) {
+            return Optional.of(fallbackMock);
         }
 
         LOG.warnf("No active provider found supporting channel [%s]", channel);

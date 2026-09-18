@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FCM Web Push Test Client</title>
+  <!-- Firebase App & Messaging SDKs (Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --text-main: #f3f4f6;
+      --text-sub: #9ca3af;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --accent: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .header .icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .project-tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #93c5fd;
+      background: rgba(59, 130, 246, 0.15);
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-top: 4px;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 20px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+      margin-top: 12px;
+    }
+    .btn-success:hover { background: #059669; }
+
+    .token-box {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .token-content {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: #030712;
+      border: 1px solid #374151;
+      color: #34d399;
+      padding: 14px;
+      border-radius: 8px;
+      word-break: break-all;
+      user-select: all;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .instruction {
+      margin-top: 16px;
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.6;
+    }
+
+    .instruction code {
+      background: #1f2937;
+      color: #fbbf24;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .noti-toast {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #6ee7b7;
+      display: none;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">🔥</div>
+      <div>
+        <h1>FCM Web Client Tester</h1>
+        <span class="project-tag">Project: notification-a0c90</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <p style="margin-bottom: 12px; font-size: 14px; color: var(--text-sub);">
+        Nhấp vào nút bên dưới và chọn <b>"Cho phép" (Allow)</b> khi trình duyệt hỏi quyền thông báo để nhận Token thiết bị của bạn.
+      </p>
+
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 12px; font-weight: 600; color: #93c5fd; margin-bottom: 4px;">
+          Web Push VAPID Key (Tùy chọn - Lấy từ Firebase Console > Project Settings > Cloud Messaging):
+        </label>
+        <input id="vapidKeyInput" type="text" placeholder="Bỏ trống nếu dùng mặc định hoặc dán VAPID key (vd: BOz...)" 
+               style="width: 100%; padding: 10px 12px; background: #030712; border: 1px solid var(--card-border); border-radius: 8px; color: #fff; font-size: 13px;">
+      </div>
+
+      <button id="btnGetToken" class="btn btn-primary" onclick="requestFCMToken()">
+        <span>🔔</span> Lấy FCM Device Token của máy này
+      </button>
+
+      <div id="notiToast" class="noti-toast"></div>
+
+      <div id="tokenContainer" class="token-box">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px; font-weight: 600;">
+          <span style="color: #93c5fd;">FCM DEVICE TOKEN CỦA BẠN:</span>
+          <span style="color: #9ca3af; cursor: pointer;" onclick="copyToken()">📋 Click để Copy</span>
+        </div>
+        <div id="fcmTokenDisplay" class="token-content"></div>
+
+        <div class="instruction">
+          <p style="font-weight: 600; color: #fff; margin-bottom: 6px;">👉 Cách gửi Push Notification tới máy này ngay:</p>
+          <p>Mở Terminal và chạy lệnh sau:</p>
+          <div style="margin-top: 8px;">
+            <code id="cliCommandDisplay">mvn test -Dtest=FirebaseTestCli -Dfcm.token="..."</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase Config của bạn
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGT8G9gzkenTw0siY_n4-in3DBYmqV16w",
+      authDomain: "notification-a0c90.firebaseapp.com",
+      projectId: "notification-a0c90",
+      storageBucket: "notification-a0c90.firebasestorage.app",
+      messagingSenderId: "595475668363",
+      appId: "1:595475668363:web:f783a787f8069b687ca38e",
+      measurementId: "G-K8WQNJ0B9P"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    let globalToken = '';
+
+    async function requestFCMToken() {
+      const btn = document.getElementById('btnGetToken');
+      btn.innerText = 'Đang kích hoạt Service Worker...';
+      btn.disabled = true;
+
+      try {
+        if (!('serviceWorker' in navigator)) {
+          throw new Error('Trình duyệt của bạn không hỗ trợ Service Worker!');
+        }
+
+        // 1. Xin quyền thông báo
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          alert('Bạn cần bấm "Cho phép" (Allow) quyền thông báo trên trình duyệt!');
+          btn.innerText = '🔔 Thử lại quyền thông báo';
+          btn.disabled = false;
+          return;
+        }
+
+        btn.innerText = 'Đang đăng ký Service Worker...';
+        // 2. Đăng ký Service Worker và đợi active hoàn toàn
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        await navigator.serviceWorker.ready;
+
+        btn.innerText = 'Đang kết nối Firebase lấy Token...';
+        const messaging = firebase.messaging();
+
+        // Lắng nghe tin nhắn khi tab đang mở (Foreground)
+        messaging.onMessage((payload) => {
+          console.log('Nhận thông báo khi mở Foreground: ', payload);
+          const title = payload.notification?.title || 'Thông báo mới';
+          const body = payload.notification?.body || 'Bạn có thông báo mới!';
+          
+          // 1. Cập nhật thẻ thông báo trực quan trên trang Web
+          const toast = document.getElementById('notiToast');
+          toast.style.display = 'block';
+          toast.innerHTML = `<b>🎉 ${title}</b><br>${body}`;
+          
+          // 2. Hiển thị Pop-up Desktop Notification của hệ thống Mac/Windows
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification(title, {
+                body: body,
+                icon: 'https://firebase.google.com/favicon.ico'
+              });
+            } catch (e) {
+              console.warn('Cannot display desktop notification:', e);
+            }
+          }
+        });
+
+        // 3. Lấy token với service worker registration đã active
+        const vapidKeyVal = document.getElementById('vapidKeyInput').value.trim();
+        const tokenOptions = { serviceWorkerRegistration: registration };
+        if (vapidKeyVal) {
+          tokenOptions.vapidKey = vapidKeyVal;
+        }
+
+        const token = await messaging.getToken(tokenOptions);
+        
+        if (token) {
+          globalToken = token;
+          document.getElementById('tokenContainer').style.display = 'block';
+          document.getElementById('fcmTokenDisplay').innerText = token;
+          document.getElementById('cliCommandDisplay').innerText = `mvn test -Dtest=FirebaseTestCli -Dfcm.token="${token}"`;
+          btn.innerText = '✅ Đã lấy Token thành công!';
+          btn.style.background = '#10b981';
+        } else {
+          throw new Error('Không nhận được Token từ Firebase. Vui lòng kiểm tra Web Push certificate!');
+        }
+      } catch (err) {
+        console.error('Lỗi lấy FCM Token:', err);
+        alert('Lỗi lấy FCM Token: ' + err.message);
+        btn.innerText = '🔔 Thử lấy lại Token';
+        btn.disabled = false;
+      }
+    }
+
+    function copyToken() {
+      if (!globalToken) return;
+      navigator.clipboard.writeText(globalToken);
+      alert('Đã copy Token vào Clipboard!');
+    }
+  </script>
+</body>
+</html>

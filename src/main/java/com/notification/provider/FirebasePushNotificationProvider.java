@@ -26,13 +26,13 @@ public class FirebasePushNotificationProvider implements NotificationProvider {
     public static final String PROVIDER_NAME = "FirebasePushNotificationProvider";
 
     @ConfigProperty(name = "firebase.push.enabled", defaultValue = "true")
-    boolean enabled;
+    public boolean enabled = true;
 
     @ConfigProperty(name = "quarkus.google.cloud.project-id", defaultValue = "notification-a0c90")
-    String projectId;
+    public String projectId = "notification-a0c90";
 
     @ConfigProperty(name = "quarkus.google.cloud.service-account-location", defaultValue = "firebase-service-account.json")
-    String serviceAccountLocation;
+    public String serviceAccountLocation = "firebase-service-account.json";
 
     private FirebaseMessaging firebaseMessaging;
     private boolean initialized = false;
@@ -119,11 +119,22 @@ public class FirebasePushNotificationProvider implements NotificationProvider {
         }
 
         try {
+            String title = notification.getSubject() != null ? notification.getSubject() : "Notification";
+            String body = notification.getContent();
+
             Message.Builder messageBuilder = Message.builder()
                     .setToken(notification.getRecipient().trim())
                     .setNotification(com.google.firebase.messaging.Notification.builder()
-                            .setTitle(notification.getSubject() != null ? notification.getSubject() : "Notification")
-                            .setBody(notification.getContent())
+                            .setTitle(title)
+                            .setBody(body)
+                            .build())
+                    .setWebpushConfig(com.google.firebase.messaging.WebpushConfig.builder()
+                            .setNotification(com.google.firebase.messaging.WebpushNotification.builder()
+                                    .setTitle(title)
+                                    .setBody(body)
+                                    .setIcon("https://firebase.google.com/favicon.ico")
+                                    .setRequireInteraction(true)
+                                    .build())
                             .build());
 
             if (notification.getId() != null) {
