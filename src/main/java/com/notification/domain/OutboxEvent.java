@@ -35,6 +35,9 @@ public class OutboxEvent {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "scheduled_at")
+    private OffsetDateTime scheduledAt;
+
     @Column(name = "published_at")
     private OffsetDateTime publishedAt;
 
@@ -87,6 +90,14 @@ public class OutboxEvent {
 
     public void setCreatedAt(OffsetDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public OffsetDateTime getScheduledAt() {
+        return scheduledAt;
+    }
+
+    public void setScheduledAt(OffsetDateTime scheduledAt) {
+        this.scheduledAt = scheduledAt;
     }
 
     public OffsetDateTime getPublishedAt() {

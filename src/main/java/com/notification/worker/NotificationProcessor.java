@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.notification.application.NotificationService;
+import com.notification.circuitbreaker.CircuitBreaker;
+import com.notification.circuitbreaker.CircuitBreakerConfig;
+import com.notification.circuitbreaker.CircuitBreakerResult;
 import com.notification.domain.AttemptStatus;
 import com.notification.domain.Channel;
 import com.notification.domain.Notification;
@@ -17,6 +20,7 @@ import com.notification.provider.ProviderSendResult;
 import com.notification.ratelimit.TokenBucketConfig;
 import com.notification.ratelimit.TokenBucketRateLimiter;
 import com.notification.ratelimit.TokenBucketResult;
+import com.notification.retry.RetryPolicy;
 import com.notification.repository.NotificationAttemptRepository;
 import com.notification.repository.NotificationRepository;
 import com.notification.repository.OutboxEventRepository;
@@ -26,7 +30,9 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -53,6 +59,12 @@ public class NotificationProcessor {
     TokenBucketRateLimiter tokenBucketRateLimiter;
 
     @Inject
+    public CircuitBreaker circuitBreaker;
+
+    @Inject
+    public RetryPolicy retryPolicy;
+
+    @Inject
     ObjectMapper objectMapper;
 
     @ConfigProperty(name = "ratelimit.worker.enabled", defaultValue = "true")
@@ -63,6 +75,27 @@ public class NotificationProcessor {
 
     @ConfigProperty(name = "ratelimit.default.refill-rate", defaultValue = "20.0")
     public double defaultRefillRate = 20.0;
+
+    @ConfigProperty(name = "circuitbreaker.enabled", defaultValue = "true")
+    public boolean circuitBreakerEnabled = true;
+
+    @ConfigProperty(name = "circuitbreaker.failure-rate-threshold", defaultValue = "50.0")
+    public double cbFailureRateThreshold = 50.0;
+
+    @ConfigProperty(name = "circuitbreaker.minimum-number-of-calls", defaultValue = "5")
+    public int cbMinimumNumberOfCalls = 5;
+
+    @ConfigProperty(name = "circuitbreaker.sliding-window-duration-ms", defaultValue = "60000")
+    public long cbSlidingWindowDurationMs = 60000L;
+
+    @ConfigProperty(name = "circuitbreaker.wait-duration-in-open-state-ms", defaultValue = "30000")
+    public long cbWaitDurationInOpenStateMs = 30000L;
+
+    @ConfigProperty(name = "circuitbreaker.permitted-number-of-calls-in-half-open-state", defaultValue = "3")
+    public int cbPermittedNumberOfCallsInHalfOpenState = 3;
+
+    @ConfigProperty(name = "circuitbreaker.half-open-success-threshold", defaultValue = "2")
+    public int cbHalfOpenSuccessThreshold = 2;
 
     @ConfigProperty(name = "notification.worker.max-retries", defaultValue = "3")
     public int maxRetries = 3;
@@ -163,13 +196,15 @@ public class NotificationProcessor {
                     if (!rateLimitResult.isAllowed()) {
                         OffsetDateTime throttledAt = OffsetDateTime.now();
                         long waitMs = rateLimitResult.getRetryAfterMs();
+                        RetryPolicy policy = resolveRetryPolicy();
+                        long delayMs = policy.calculateDelayMs(attemptNumber, waitMs);
+                        OffsetDateTime scheduledAt = throttledAt.plus(delayMs, ChronoUnit.MILLIS);
                         String errorMsg = String.format("Rate limit exceeded for channel [%s]. Retry after %d ms",
                                 notification.getChannel(), waitMs);
 
                         LOG.warnf("Notification [%s] throttled by Rate Limiter: %s", notificationId, errorMsg);
 
-                        // Update Notification status to RETRYING
-                        notification.setStatus(NotificationStatus.RETRYING);
+                        // Update Notification status
                         notification.setRetryCount(attemptNumber);
                         notification.setUpdatedAt(throttledAt);
 
@@ -186,14 +221,63 @@ public class NotificationProcessor {
                         notificationAttemptRepository.persist(attempt);
 
                         // Schedule / re-queue message asynchronously without blocking the Worker thread
-                        if (attemptNumber <= maxRetries) {
-                            scheduleRetryOutboxEvent(notification);
-                            LOG.infof("Notification [%s] scheduled for retry (attempt #%d <= max %d)",
-                                    notificationId, attemptNumber, maxRetries);
+                        if (policy.canRetryRateLimited(attemptNumber)) {
+                            notification.setStatus(NotificationStatus.RETRYING);
+                            scheduleRetryOutboxEvent(notification, scheduledAt);
+                            LOG.infof("Notification [%s] scheduled for retry (attempt #%d <= max %d) at %s (delay %d ms)",
+                                    notificationId, attemptNumber, policy.getMaxRetries(), scheduledAt, delayMs);
                         } else {
                             notification.setStatus(NotificationStatus.DEAD_LETTER);
                             LOG.errorf("Notification [%s] exceeded max retries (%d). Marked as DEAD_LETTER.",
-                                    notificationId, maxRetries);
+                                    notificationId, policy.getMaxRetries());
+                        }
+                        return;
+                    }
+                }
+
+                // Circuit Breaker check (Fail-Fast for downstream outage protection)
+                String cbKey = resolveCircuitBreakerKey(notification, provider);
+                CircuitBreakerConfig cbConfig = resolveCircuitBreakerConfig();
+
+                if (circuitBreakerEnabled && circuitBreaker != null) {
+                    CircuitBreakerResult cbResult = circuitBreaker.acquirePermission(cbKey, cbConfig);
+                    if (!cbResult.isAllowed()) {
+                        OffsetDateTime blockedAt = OffsetDateTime.now();
+                        long waitMs = cbResult.getRetryAfterMs();
+                        RetryPolicy policy = resolveRetryPolicy();
+                        long delayMs = policy.calculateDelayMs(attemptNumber, waitMs);
+                        OffsetDateTime scheduledAt = blockedAt.plus(delayMs, ChronoUnit.MILLIS);
+                        String errorMsg = String.format("Circuit Breaker is [%s] for provider [%s]. Fail-fast without calling downstream. Retry after %d ms",
+                                cbResult.getState(), provider.getName(), waitMs);
+
+                        LOG.warnf("Notification [%s] blocked by Circuit Breaker: %s", notificationId, errorMsg);
+
+                        // Update Notification status
+                        notification.setRetryCount(attemptNumber);
+                        notification.setUpdatedAt(blockedAt);
+
+                        // Create blocked NotificationAttempt record
+                        NotificationAttempt attempt = new NotificationAttempt();
+                        attempt.setId(UUID.randomUUID());
+                        attempt.setNotification(notification);
+                        attempt.setProvider(notification.getProvider());
+                        attempt.setAttemptNumber(attemptNumber);
+                        attempt.setStatus(AttemptStatus.FAILED);
+                        attempt.setErrorMessage(errorMsg);
+                        attempt.setAttemptedAt(attemptedAt);
+                        attempt.setCompletedAt(blockedAt);
+                        notificationAttemptRepository.persist(attempt);
+
+                        // Reschedule via Outbox
+                        if (policy.canRetryRateLimited(attemptNumber)) {
+                            notification.setStatus(NotificationStatus.RETRYING);
+                            scheduleRetryOutboxEvent(notification, scheduledAt);
+                            LOG.infof("Notification [%s] scheduled for retry after Circuit Breaker block (attempt #%d <= max %d) at %s (delay %d ms)",
+                                    notificationId, attemptNumber, policy.getMaxRetries(), scheduledAt, delayMs);
+                        } else {
+                            notification.setStatus(NotificationStatus.DEAD_LETTER);
+                            LOG.errorf("Notification [%s] exceeded max retries (%d) during Circuit Breaker block. Marked as DEAD_LETTER.",
+                                    notificationId, policy.getMaxRetries());
                         }
                         return;
                     }
@@ -201,6 +285,11 @@ public class NotificationProcessor {
 
                 ProviderSendResult sendResult = provider.send(notification);
                 OffsetDateTime completedAt = OffsetDateTime.now();
+
+                // Record send result to Circuit Breaker
+                if (circuitBreakerEnabled && circuitBreaker != null) {
+                    circuitBreaker.recordResult(cbKey, sendResult, cbConfig);
+                }
 
                 if (sendResult.isSuccess()) {
                     // Update Notification status to DELIVERED
@@ -223,18 +312,30 @@ public class NotificationProcessor {
                     LOG.infof("Notification [%s] successfully DELIVERED via provider [%s] on attempt #%d",
                             notificationId, provider.getName(), attemptNumber);
                 } else {
-                    // Update Notification status to FAILED or RETRYING
+                    // Update Notification status and determine retryability
                     OffsetDateTime failedAt = OffsetDateTime.now();
                     notification.setRetryCount(attemptNumber);
                     notification.setUpdatedAt(failedAt);
 
-                    if (attemptNumber <= maxRetries) {
-                        notification.setStatus(NotificationStatus.RETRYING);
-                        scheduleRetryOutboxEvent(notification);
-                        LOG.infof("Notification [%s] send failed via [%s]. Re-queued for retry #%d.",
-                                notificationId, provider.getName(), attemptNumber);
-                    } else {
+                    RetryPolicy policy = resolveRetryPolicy();
+                    boolean isRetryable = policy.getRetryClassifier().isRetryable(sendResult);
+
+                    if (!isRetryable) {
                         notification.setStatus(NotificationStatus.FAILED);
+                        LOG.warnf("Notification [%s] delivery FAILED with non-retryable error via [%s] on attempt #%d: %s",
+                                notificationId, provider.getName(), attemptNumber, sendResult.getErrorMessage());
+                    } else if (attemptNumber <= policy.getMaxRetries()) {
+                        long delayMs = policy.calculateDelayMs(attemptNumber, null);
+                        OffsetDateTime scheduledAt = failedAt.plus(delayMs, ChronoUnit.MILLIS);
+
+                        notification.setStatus(NotificationStatus.RETRYING);
+                        scheduleRetryOutboxEvent(notification, scheduledAt);
+                        LOG.infof("Notification [%s] send failed via [%s] (retryable). Scheduled for retry #%d at %s (delay %d ms).",
+                                notificationId, provider.getName(), attemptNumber, scheduledAt, delayMs);
+                    } else {
+                        notification.setStatus(NotificationStatus.DEAD_LETTER);
+                        LOG.errorf("Notification [%s] exceeded max retries (%d). Marked as DEAD_LETTER.",
+                                notificationId, policy.getMaxRetries());
                     }
 
                     // Create failed NotificationAttempt
@@ -249,18 +350,32 @@ public class NotificationProcessor {
                     attempt.setCompletedAt(completedAt);
 
                     notificationAttemptRepository.persist(attempt);
-
-                    LOG.warnf("Notification [%s] delivery FAILED via provider [%s] on attempt #%d: %s",
-                            notificationId, provider.getName(), attemptNumber, sendResult.getErrorMessage());
                 }
             } catch (Exception ex) {
                 LOG.errorf(ex, "Unexpected error processing notification [%s] on attempt #%d", notificationId, attemptNumber);
 
-                OffsetDateTime failedAt = OffsetDateTime.now();
+                if (circuitBreakerEnabled && circuitBreaker != null) {
+                    String cbKey = resolveCircuitBreakerKey(notification, null);
+                    circuitBreaker.recordException(cbKey, ex, resolveCircuitBreakerConfig());
+                }
 
-                notification.setStatus(NotificationStatus.FAILED);
+                OffsetDateTime failedAt = OffsetDateTime.now();
                 notification.setRetryCount(attemptNumber);
                 notification.setUpdatedAt(failedAt);
+
+                RetryPolicy policy = resolveRetryPolicy();
+                boolean isRetryable = policy.getRetryClassifier().isRetryableException(ex);
+
+                if (isRetryable && attemptNumber <= policy.getMaxRetries()) {
+                    long delayMs = policy.calculateDelayMs(attemptNumber, null);
+                    OffsetDateTime scheduledAt = failedAt.plus(delayMs, ChronoUnit.MILLIS);
+                    notification.setStatus(NotificationStatus.RETRYING);
+                    scheduleRetryOutboxEvent(notification, scheduledAt);
+                } else if (attemptNumber > policy.getMaxRetries()) {
+                    notification.setStatus(NotificationStatus.DEAD_LETTER);
+                } else {
+                    notification.setStatus(NotificationStatus.FAILED);
+                }
 
                 NotificationAttempt attempt = new NotificationAttempt();
                 attempt.setId(UUID.randomUUID());
@@ -276,6 +391,13 @@ public class NotificationProcessor {
             }
         }
 
+    public RetryPolicy resolveRetryPolicy() {
+        if (retryPolicy != null) {
+            return retryPolicy;
+        }
+        return new RetryPolicy(maxRetries, new com.notification.retry.ExponentialBackoffStrategy(1000L, 60000L, 2.0, false), new com.notification.retry.RetryClassifier());
+    }
+
     public String resolveRateLimitKey(Notification notification, NotificationProvider provider) {
         if (notification.getChannel() != null) {
             return "channel:" + notification.getChannel().name().toLowerCase();
@@ -286,11 +408,33 @@ public class NotificationProcessor {
         return "default";
     }
 
+    public String resolveCircuitBreakerKey(Notification notification, NotificationProvider provider) {
+        if (provider != null && provider.getName() != null) {
+            return "provider:" + provider.getName().toLowerCase();
+        }
+        if (notification != null && notification.getChannel() != null) {
+            return "channel:" + notification.getChannel().name().toLowerCase();
+        }
+        return "default";
+    }
+
+    public CircuitBreakerConfig resolveCircuitBreakerConfig() {
+        return new CircuitBreakerConfig(
+                cbFailureRateThreshold,
+                cbMinimumNumberOfCalls,
+                Duration.ofMillis(cbSlidingWindowDurationMs),
+                Duration.ofMillis(cbWaitDurationInOpenStateMs),
+                cbPermittedNumberOfCallsInHalfOpenState,
+                cbHalfOpenSuccessThreshold,
+                Duration.ofHours(24)
+        );
+    }
+
     public TokenBucketConfig resolveTokenBucketConfig(Notification notification) {
         return TokenBucketConfig.of(defaultCapacity, defaultRefillRate, 1L);
     }
 
-    private void scheduleRetryOutboxEvent(Notification notification) {
+    private void scheduleRetryOutboxEvent(Notification notification, OffsetDateTime scheduledAt) {
         OutboxEvent outboxEvent = new OutboxEvent();
         outboxEvent.setId(UUID.randomUUID());
         outboxEvent.setAggregateId(notification.getId());
@@ -298,6 +442,7 @@ public class NotificationProcessor {
         outboxEvent.setPayload(serializePayload(notification));
         outboxEvent.setStatus(OutboxStatus.PENDING);
         outboxEvent.setCreatedAt(OffsetDateTime.now());
+        outboxEvent.setScheduledAt(scheduledAt != null ? scheduledAt : OffsetDateTime.now());
         outboxEvent.setPublishedAt(null);
         outboxEventRepository.persist(outboxEvent);
     }

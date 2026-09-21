@@ -54,7 +54,7 @@ public class OutboxPublisher {
     }
 
     public int processPendingEvents() {
-        List<OutboxEvent> pendingEvents = outboxEventRepository.findPendingEvents(batchSize);
+        List<OutboxEvent> pendingEvents = outboxEventRepository.findDuePendingEvents(batchSize);
         if (pendingEvents.isEmpty()) {
             return 0;
         }
