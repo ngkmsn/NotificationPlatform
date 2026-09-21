@@ -170,8 +170,8 @@ public class WorkerRateLimitTest {
         assertEquals(NotificationStatus.DEAD_LETTER, notification.getStatus());
         assertEquals(4, notification.getRetryCount());
 
-        // No new outbox retry event scheduled once DEAD_LETTER
-        verify(mockOutboxRepository, never()).persist(any(OutboxEvent.class));
+        // DLQ outbox event scheduled
+        verify(mockOutboxRepository, times(1)).persist(any(OutboxEvent.class));
     }
 
     @Test

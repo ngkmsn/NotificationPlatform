@@ -25,6 +25,7 @@ import java.util.UUID;
 public class NotificationService {
 
     public static final String EVENT_TYPE_NOTIFICATION_CREATED = "NOTIFICATION_CREATED";
+    public static final String EVENT_TYPE_NOTIFICATION_DEAD_LETTER = "NOTIFICATION_DEAD_LETTER";
 
     @Inject
     NotificationRepository notificationRepository;

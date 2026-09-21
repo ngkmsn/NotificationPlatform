@@ -216,8 +216,8 @@ public class WorkerCircuitBreakerTest {
 
         verify(mockProvider, times(1)).send(notification);
         verify(mockCircuitBreaker, times(1)).recordResult(any(), eq(fatalResult), any(CircuitBreakerConfig.class));
-        assertEquals(NotificationStatus.FAILED, notification.getStatus());
-        verify(mockOutboxRepository, never()).persist(any(OutboxEvent.class));
+        assertEquals(NotificationStatus.DEAD_LETTER, notification.getStatus());
+        verify(mockOutboxRepository, times(1)).persist(any(OutboxEvent.class));
     }
 
     private Notification createSampleNotification(UUID notificationId, int retryCount) {

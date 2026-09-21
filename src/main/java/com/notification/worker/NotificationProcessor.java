@@ -7,6 +7,8 @@ import com.notification.application.NotificationService;
 import com.notification.circuitbreaker.CircuitBreaker;
 import com.notification.circuitbreaker.CircuitBreakerConfig;
 import com.notification.circuitbreaker.CircuitBreakerResult;
+import com.notification.dlq.DeadLetterService;
+import com.notification.dlq.DlqReason;
 import com.notification.domain.AttemptStatus;
 import com.notification.domain.Channel;
 import com.notification.domain.Notification;
@@ -60,6 +62,9 @@ public class NotificationProcessor {
 
     @Inject
     public CircuitBreaker circuitBreaker;
+
+    @Inject
+    public DeadLetterService deadLetterService;
 
     @Inject
     public RetryPolicy retryPolicy;
@@ -167,7 +172,6 @@ public class NotificationProcessor {
                     LOG.errorf("Notification [%s] failed: %s", notificationId, errorMsg);
 
                     OffsetDateTime failedAt = OffsetDateTime.now();
-                    notification.setStatus(NotificationStatus.FAILED);
                     notification.setRetryCount(attemptNumber);
                     notification.setUpdatedAt(failedAt);
 
@@ -182,6 +186,8 @@ public class NotificationProcessor {
                     attempt.setCompletedAt(failedAt);
 
                     notificationAttemptRepository.persist(attempt);
+
+                    resolveDeadLetterService().routeToDlq(notification, DlqReason.NO_PROVIDER_AVAILABLE, errorMsg, null, null, null);
                     return;
                 }
 
@@ -227,9 +233,9 @@ public class NotificationProcessor {
                             LOG.infof("Notification [%s] scheduled for retry (attempt #%d <= max %d) at %s (delay %d ms)",
                                     notificationId, attemptNumber, policy.getMaxRetries(), scheduledAt, delayMs);
                         } else {
-                            notification.setStatus(NotificationStatus.DEAD_LETTER);
-                            LOG.errorf("Notification [%s] exceeded max retries (%d). Marked as DEAD_LETTER.",
+                            LOG.errorf("Notification [%s] exceeded max retries (%d) during Rate Limiter throttle. Routing to DLQ.",
                                     notificationId, policy.getMaxRetries());
+                            resolveDeadLetterService().routeToDlq(notification, DlqReason.MAX_RETRIES_EXCEEDED, errorMsg, 429, provider.getName(), null);
                         }
                         return;
                     }
@@ -275,9 +281,9 @@ public class NotificationProcessor {
                             LOG.infof("Notification [%s] scheduled for retry after Circuit Breaker block (attempt #%d <= max %d) at %s (delay %d ms)",
                                     notificationId, attemptNumber, policy.getMaxRetries(), scheduledAt, delayMs);
                         } else {
-                            notification.setStatus(NotificationStatus.DEAD_LETTER);
-                            LOG.errorf("Notification [%s] exceeded max retries (%d) during Circuit Breaker block. Marked as DEAD_LETTER.",
+                            LOG.errorf("Notification [%s] exceeded max retries (%d) during Circuit Breaker block. Routing to DLQ.",
                                     notificationId, policy.getMaxRetries());
+                            resolveDeadLetterService().routeToDlq(notification, DlqReason.MAX_RETRIES_EXCEEDED, errorMsg, null, provider.getName(), null);
                         }
                         return;
                     }
@@ -321,9 +327,9 @@ public class NotificationProcessor {
                     boolean isRetryable = policy.getRetryClassifier().isRetryable(sendResult);
 
                     if (!isRetryable) {
-                        notification.setStatus(NotificationStatus.FAILED);
-                        LOG.warnf("Notification [%s] delivery FAILED with non-retryable error via [%s] on attempt #%d: %s",
+                        LOG.warnf("Notification [%s] delivery FAILED with non-retryable error via [%s] on attempt #%d: %s. Routing to DLQ.",
                                 notificationId, provider.getName(), attemptNumber, sendResult.getErrorMessage());
+                        resolveDeadLetterService().routeToDlq(notification, DlqReason.NON_RETRYABLE_ERROR, sendResult.getErrorMessage(), sendResult.getHttpStatusCode(), provider.getName(), null);
                     } else if (attemptNumber <= policy.getMaxRetries()) {
                         long delayMs = policy.calculateDelayMs(attemptNumber, null);
                         OffsetDateTime scheduledAt = failedAt.plus(delayMs, ChronoUnit.MILLIS);
@@ -333,9 +339,9 @@ public class NotificationProcessor {
                         LOG.infof("Notification [%s] send failed via [%s] (retryable). Scheduled for retry #%d at %s (delay %d ms).",
                                 notificationId, provider.getName(), attemptNumber, scheduledAt, delayMs);
                     } else {
-                        notification.setStatus(NotificationStatus.DEAD_LETTER);
-                        LOG.errorf("Notification [%s] exceeded max retries (%d). Marked as DEAD_LETTER.",
+                        LOG.errorf("Notification [%s] exceeded max retries (%d). Routing to DLQ.",
                                 notificationId, policy.getMaxRetries());
+                        resolveDeadLetterService().routeToDlq(notification, DlqReason.MAX_RETRIES_EXCEEDED, sendResult.getErrorMessage(), sendResult.getHttpStatusCode(), provider.getName(), null);
                     }
 
                     // Create failed NotificationAttempt
@@ -372,9 +378,9 @@ public class NotificationProcessor {
                     notification.setStatus(NotificationStatus.RETRYING);
                     scheduleRetryOutboxEvent(notification, scheduledAt);
                 } else if (attemptNumber > policy.getMaxRetries()) {
-                    notification.setStatus(NotificationStatus.DEAD_LETTER);
+                    resolveDeadLetterService().routeToDlq(notification, DlqReason.MAX_RETRIES_EXCEEDED, ex.getMessage(), null, null, null);
                 } else {
-                    notification.setStatus(NotificationStatus.FAILED);
+                    resolveDeadLetterService().routeToDlq(notification, DlqReason.FATAL_EXCEPTION, ex.getMessage(), null, null, null);
                 }
 
                 NotificationAttempt attempt = new NotificationAttempt();
@@ -390,6 +396,17 @@ public class NotificationProcessor {
                 notificationAttemptRepository.persist(attempt);
             }
         }
+
+    public DeadLetterService resolveDeadLetterService() {
+        if (deadLetterService != null) {
+            return deadLetterService;
+        }
+        DeadLetterService fallback = new DeadLetterService();
+        fallback.notificationRepository = this.notificationRepository;
+        fallback.outboxEventRepository = this.outboxEventRepository;
+        fallback.objectMapper = this.objectMapper != null ? this.objectMapper : new ObjectMapper();
+        return fallback;
+    }
 
     public RetryPolicy resolveRetryPolicy() {
         if (retryPolicy != null) {

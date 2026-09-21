@@ -2,6 +2,7 @@ package com.notification.worker;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notification.application.NotificationService;
 import com.notification.domain.OutboxEvent;
 import com.notification.domain.OutboxStatus;
 import com.notification.domain.Priority;
@@ -30,6 +31,7 @@ public class OutboxPublisher {
     public static final String TOPIC_HIGH = "notification-high";
     public static final String TOPIC_NORMAL = "notification-normal";
     public static final String TOPIC_LOW = "notification-low";
+    public static final String TOPIC_DLQ = "notification-dlq";
 
     @Inject
     OutboxEventRepository outboxEventRepository;
@@ -45,6 +47,9 @@ public class OutboxPublisher {
 
     @ConfigProperty(name = "outbox.publisher.batch-size", defaultValue = "50")
     int batchSize;
+
+    @ConfigProperty(name = "notification.dlq.topic", defaultValue = "notification-dlq")
+    String dlqTopic;
 
     @Scheduled(every = "${outbox.publisher.interval:2s}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     public void runScheduled() {
@@ -105,6 +110,14 @@ public class OutboxPublisher {
     }
 
     public String resolveTopic(OutboxEvent event) {
+        if (event == null) {
+            return TOPIC_NORMAL;
+        }
+
+        if (NotificationService.EVENT_TYPE_NOTIFICATION_DEAD_LETTER.equalsIgnoreCase(event.getEventType())) {
+            return dlqTopic != null && !dlqTopic.isBlank() ? dlqTopic : TOPIC_DLQ;
+        }
+
         if (event.getPayload() == null || event.getPayload().isBlank()) {
             return TOPIC_NORMAL;
         }

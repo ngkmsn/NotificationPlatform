@@ -4,6 +4,8 @@ import com.notification.api.dto.ErrorResponse;
 import com.notification.application.ValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
@@ -16,8 +18,24 @@ public class ValidationExceptionMapper implements ExceptionMapper<Exception> {
 
     @Override
     public Response toResponse(Exception exception) {
+        if (exception instanceof NotFoundException nfe) {
+            ErrorResponse error = new ErrorResponse(nfe.getMessage() != null ? nfe.getMessage() : "Resource not found");
+            return Response.status(Response.Status.NOT_FOUND)
+                    .type(MediaType.APPLICATION_JSON)
+                    .entity(error)
+                    .build();
+        }
+
         if (exception instanceof ValidationException ve) {
             ErrorResponse error = new ErrorResponse(ve.getMessage());
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .type(MediaType.APPLICATION_JSON)
+                    .entity(error)
+                    .build();
+        }
+
+        if (exception instanceof IllegalStateException ise) {
+            ErrorResponse error = new ErrorResponse(ise.getMessage());
             return Response.status(Response.Status.BAD_REQUEST)
                     .type(MediaType.APPLICATION_JSON)
                     .entity(error)
@@ -44,8 +62,17 @@ public class ValidationExceptionMapper implements ExceptionMapper<Exception> {
                     .build();
         }
 
+        if (exception instanceof WebApplicationException wae) {
+            Response resp = wae.getResponse();
+            ErrorResponse error = new ErrorResponse(wae.getMessage() != null ? wae.getMessage() : "HTTP error " + resp.getStatus());
+            return Response.status(resp.getStatus())
+                    .type(MediaType.APPLICATION_JSON)
+                    .entity(error)
+                    .build();
+        }
+
         // Jackson / JSON parse error
-        if (exception.getClass().getName().contains("Json") || exception.getMessage() != null && exception.getMessage().contains("JSON")) {
+        if (exception.getClass().getName().contains("Json") || (exception.getMessage() != null && exception.getMessage().contains("JSON"))) {
             ErrorResponse error = new ErrorResponse("Invalid JSON payload: " + exception.getMessage());
             return Response.status(Response.Status.BAD_REQUEST)
                     .type(MediaType.APPLICATION_JSON)

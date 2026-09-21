@@ -101,7 +101,7 @@ public class WorkerRetryPolicyTest {
     }
 
     @Test
-    @DisplayName("Non-retryable provider error (400) transitions directly to FAILED and does not re-queue")
+    @DisplayName("Non-retryable provider error (400) transitions to DEAD_LETTER and routes to DLQ")
     public void testNonRetryableProviderErrorFailsImmediately() {
         UUID notificationId = UUID.randomUUID();
         Notification notification = createSampleNotification(notificationId, 0);
@@ -111,19 +111,19 @@ public class WorkerRetryPolicyTest {
 
         processor.doProcessNotification(notificationId);
 
-        // Status should be terminal FAILED immediately
-        assertEquals(NotificationStatus.FAILED, notification.getStatus());
+        // Status should transition to DEAD_LETTER
+        assertEquals(NotificationStatus.DEAD_LETTER, notification.getStatus());
         assertEquals(1, notification.getRetryCount());
 
-        // Must NOT schedule an OutboxEvent for non-retryable error
-        verify(mockOutboxRepository, never()).persist(any(OutboxEvent.class));
+        // DLQ OutboxEvent must be persisted
+        verify(mockOutboxRepository, times(1)).persist(any(OutboxEvent.class));
 
         // Attempt must be logged as FAILED
         verify(mockAttemptRepository, times(1)).persist(any(NotificationAttempt.class));
     }
 
     @Test
-    @DisplayName("Exceeding max retries transitions to DEAD_LETTER and stops scheduling")
+    @DisplayName("Exceeding max retries transitions to DEAD_LETTER and routes to DLQ")
     public void testExceedingMaxRetriesTransitionsToDeadLetter() {
         UUID notificationId = UUID.randomUUID();
         // Notification has already been retried 3 times (attempt 4 will exceed maxRetries = 3)
@@ -138,8 +138,8 @@ public class WorkerRetryPolicyTest {
         assertEquals(NotificationStatus.DEAD_LETTER, notification.getStatus());
         assertEquals(4, notification.getRetryCount());
 
-        // No more outbox events scheduled
-        verify(mockOutboxRepository, never()).persist(any(OutboxEvent.class));
+        // DLQ outbox event persisted
+        verify(mockOutboxRepository, times(1)).persist(any(OutboxEvent.class));
     }
 
     @Test
