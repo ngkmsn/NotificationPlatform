@@ -63,6 +63,22 @@ public class DlqResource {
         return Response.ok(response).build();
     }
 
+    @POST
+    @Path("/retry-all")
+    public Response retryAllDlq(@QueryParam("channel") String channelStr) {
+        Channel channel = parseChannel(channelStr);
+        com.notification.api.dto.DlqBulkActionResponse response = deadLetterService.retryAllDlq(channel);
+        return Response.ok(response).build();
+    }
+
+    @POST
+    @Path("/cancel-all")
+    public Response cancelAllDlq(@QueryParam("channel") String channelStr) {
+        Channel channel = parseChannel(channelStr);
+        com.notification.api.dto.DlqBulkActionResponse response = deadLetterService.cancelAllDlq(channel);
+        return Response.ok(response).build();
+    }
+
     private Channel parseChannel(String channelStr) {
         if (channelStr == null || channelStr.isBlank()) {
             return null;

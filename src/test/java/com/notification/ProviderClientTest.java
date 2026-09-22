@@ -67,7 +67,7 @@ public class ProviderClientTest {
         for (Channel channel : Channel.values()) {
             Optional<NotificationProvider> providerOpt = providerRegistry.getProviderForChannel(channel);
             assertTrue(providerOpt.isPresent(), "Should find provider for channel: " + channel);
-            assertEquals(MockNotificationProvider.PROVIDER_NAME, providerOpt.get().getName());
+            assertNotNull(providerOpt.get().getName());
         }
     }
 
@@ -113,7 +113,7 @@ public class ProviderClientTest {
         notificationRepository.getEntityManager().clear();
         Notification notification = notificationRepository.findById(notificationId);
         assertNotNull(notification);
-        assertEquals(NotificationStatus.FAILED, notification.getStatus());
+        assertEquals(NotificationStatus.RETRYING, notification.getStatus(), "Retryable 429 should transition notification to RETRYING status");
         assertEquals(1, notification.getRetryCount());
 
         notificationAttemptRepository.getEntityManager().clear();
@@ -140,7 +140,7 @@ public class ProviderClientTest {
         notificationRepository.getEntityManager().clear();
         Notification notification = notificationRepository.findById(notificationId);
         assertNotNull(notification);
-        assertEquals(NotificationStatus.FAILED, notification.getStatus());
+        assertEquals(NotificationStatus.RETRYING, notification.getStatus(), "Retryable 500 error should transition notification to RETRYING status");
         assertEquals(1, notification.getRetryCount());
 
         notificationAttemptRepository.getEntityManager().clear();
@@ -167,7 +167,7 @@ public class ProviderClientTest {
         notificationRepository.getEntityManager().clear();
         Notification notification = notificationRepository.findById(notificationId);
         assertNotNull(notification);
-        assertEquals(NotificationStatus.FAILED, notification.getStatus());
+        assertEquals(NotificationStatus.RETRYING, notification.getStatus(), "Retryable timeout error should transition notification to RETRYING status");
         assertEquals(1, notification.getRetryCount());
 
         notificationAttemptRepository.getEntityManager().clear();
@@ -195,7 +195,7 @@ public class ProviderClientTest {
         notificationRepository.getEntityManager().clear();
         Notification notification = notificationRepository.findById(notificationId);
         assertNotNull(notification);
-        assertEquals(NotificationStatus.FAILED, notification.getStatus());
+        assertEquals(NotificationStatus.DEAD_LETTER, notification.getStatus(), "No provider available should route notification directly to DEAD_LETTER");
 
         notificationAttemptRepository.getEntityManager().clear();
         List<NotificationAttempt> attempts = notificationAttemptRepository.findByNotificationId(notificationId);

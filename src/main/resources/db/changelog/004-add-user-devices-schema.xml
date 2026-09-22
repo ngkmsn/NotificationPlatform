@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ChangeSet 1: Create user_devices table -->
+    <changeSet id="004-create-user-devices-table" author="notification-platform">
+        <createTable tableName="user_devices">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false" primaryKeyName="pk_user_devices"/>
+            </column>
+            <column name="user_id" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="device_token" type="VARCHAR(1000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="platform" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="user_devices" indexName="idx_user_devices_user_id">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="user_devices" indexName="idx_user_devices_token">
+            <column name="device_token"/>
+        </createIndex>
+        <addUniqueConstraint tableName="user_devices"
+                             columnNames="user_id, device_token"
+                             constraintName="uk_user_devices_user_token"/>
+    </changeSet>
+
+</databaseChangeLog>

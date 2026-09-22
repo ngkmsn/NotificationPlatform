@@ -10,19 +10,28 @@ import com.notification.domain.NotificationStatus;
 import com.notification.domain.OutboxEvent;
 import com.notification.domain.OutboxStatus;
 import com.notification.domain.Priority;
+import com.notification.domain.UserDevice;
 import com.notification.repository.NotificationRepository;
 import com.notification.repository.OutboxEventRepository;
+import com.notification.repository.UserDeviceRepository;
+import com.notification.metrics.NotificationMetrics;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.jboss.logging.Logger;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @ApplicationScoped
 public class NotificationService {
+
+    private static final Logger LOG = Logger.getLogger(NotificationService.class);
 
     public static final String EVENT_TYPE_NOTIFICATION_CREATED = "NOTIFICATION_CREATED";
     public static final String EVENT_TYPE_NOTIFICATION_DEAD_LETTER = "NOTIFICATION_DEAD_LETTER";
@@ -34,9 +43,16 @@ public class NotificationService {
     OutboxEventRepository outboxEventRepository;
 
     @Inject
+    UserDeviceRepository userDeviceRepository;
+
+    @Inject
+    NotificationMetrics notificationMetrics;
+
+    @Inject
     ObjectMapper objectMapper;
 
     @Transactional
+    @WithSpan("createNotification")
     public CreateNotificationResponse createNotification(CreateNotificationRequest request) {
         return createNotificationInternal(request, false);
     }
@@ -68,13 +84,74 @@ public class NotificationService {
             throw new ValidationException("subject is required for EMAIL channel");
         }
 
+        String rawRecipient = request.getRecipient().trim();
+
+        // 1. Check if broadcast to all active devices
+        if (channel == Channel.PUSH && (rawRecipient.equalsIgnoreCase("ALL") || rawRecipient.equalsIgnoreCase("BROADCAST") || rawRecipient.equalsIgnoreCase("@ALL"))) {
+            List<UserDevice> allDevices = userDeviceRepository.findAllActiveDevices();
+            if (!allDevices.isEmpty()) {
+                UUID primaryId = null;
+                NotificationStatus primaryStatus = null;
+                for (UserDevice device : allDevices) {
+                    Notification notification = persistNotificationAndOutbox(device.getDeviceToken(), channel, priority, request.getSubject(), request.getContent());
+                    if (primaryId == null) {
+                        primaryId = notification.getId();
+                        primaryStatus = notification.getStatus();
+                    }
+                }
+                if (simulateFailure) {
+                    throw new RuntimeException("Simulated unexpected failure to trigger transaction rollback");
+                }
+                return new CreateNotificationResponse(primaryId, primaryStatus);
+            }
+        }
+
+        // 2. Parse comma/semicolon separated recipients
+        String[] recipientList = rawRecipient.split("[,;]");
+        UUID primaryId = null;
+        NotificationStatus primaryStatus = null;
+
+        for (String singleRecipient : recipientList) {
+            String trimmed = singleRecipient.trim();
+            if (trimmed.isBlank()) continue;
+
+            if (channel == Channel.PUSH) {
+                List<UserDevice> activeDevices = userDeviceRepository.findActiveDevicesByUserId(trimmed);
+                if (!activeDevices.isEmpty()) {
+                    for (UserDevice device : activeDevices) {
+                        Notification notification = persistNotificationAndOutbox(device.getDeviceToken(), channel, priority, request.getSubject(), request.getContent());
+                        if (primaryId == null) {
+                            primaryId = notification.getId();
+                            primaryStatus = notification.getStatus();
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            // Default: direct dispatch to raw recipient (email, phone, or raw FCM token)
+            Notification notification = persistNotificationAndOutbox(trimmed, channel, priority, request.getSubject(), request.getContent());
+            if (primaryId == null) {
+                primaryId = notification.getId();
+                primaryStatus = notification.getStatus();
+            }
+        }
+
+        if (simulateFailure) {
+            throw new RuntimeException("Simulated unexpected failure to trigger transaction rollback");
+        }
+
+        return new CreateNotificationResponse(primaryId != null ? primaryId : UUID.randomUUID(), primaryStatus != null ? primaryStatus : NotificationStatus.QUEUED);
+    }
+
+    private Notification persistNotificationAndOutbox(String recipient, Channel channel, Priority priority, String subject, String content) {
         // 1. Build notification entity
         Notification notification = new Notification();
         notification.setId(UUID.randomUUID());
-        notification.setRecipient(request.getRecipient().trim());
+        notification.setRecipient(recipient);
         notification.setChannel(channel);
-        notification.setSubject(request.getSubject() != null ? request.getSubject().trim() : null);
-        notification.setContent(request.getContent());
+        notification.setSubject(subject != null ? subject.trim() : null);
+        notification.setContent(content);
         notification.setPriority(priority);
         notification.setStatus(NotificationStatus.QUEUED);
         notification.setRetryCount(0);
@@ -97,11 +174,12 @@ public class NotificationService {
         // 4. Persist OutboxEvent in the same transaction
         outboxEventRepository.persist(outboxEvent);
 
-        if (simulateFailure) {
-            throw new RuntimeException("Simulated unexpected failure to trigger transaction rollback");
+        // 5. Record Prometheus metric
+        if (notificationMetrics != null) {
+            notificationMetrics.recordCreated(channel, priority);
         }
 
-        return new CreateNotificationResponse(notification.getId(), notification.getStatus());
+        return notification;
     }
 
     private String serializePayload(Notification notification) {

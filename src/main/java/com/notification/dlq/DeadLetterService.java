@@ -271,6 +271,66 @@ public class DeadLetterService {
         return new DlqActionResponse(id, NotificationStatus.CANCELLED, "Notification successfully cancelled from DLQ");
     }
 
+    /**
+     * Retries all DEAD_LETTER notifications (optionally filtered by channel).
+     * Re-queues them into outbox with fresh retry budget.
+     */
+    @Transactional
+    public com.notification.api.dto.DlqBulkActionResponse retryAllDlq(Channel channel) {
+        PanacheQuery<Notification> query = notificationRepository.findDlq(channel, null);
+        List<Notification> list = query.list();
+        if (list.isEmpty()) {
+            return new com.notification.api.dto.DlqBulkActionResponse(0, NotificationStatus.QUEUED.name(), "No DEAD_LETTER notifications found to retry");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        int count = 0;
+        for (Notification notification : list) {
+            notification.setStatus(NotificationStatus.QUEUED);
+            notification.setRetryCount(0);
+            notification.setUpdatedAt(now);
+
+            OutboxEvent outboxEvent = new OutboxEvent();
+            outboxEvent.setId(UUID.randomUUID());
+            outboxEvent.setAggregateId(notification.getId());
+            outboxEvent.setEventType(NotificationService.EVENT_TYPE_NOTIFICATION_CREATED);
+            outboxEvent.setPayload(serializeNotificationPayload(notification));
+            outboxEvent.setStatus(OutboxStatus.PENDING);
+            outboxEvent.setCreatedAt(now);
+            outboxEvent.setScheduledAt(now);
+            outboxEvent.setPublishedAt(null);
+
+            outboxEventRepository.persist(outboxEvent);
+            count++;
+        }
+
+        LOG.infof("Bulk retry completed: %d notification(s) re-queued from DLQ into Outbox", count);
+        return new com.notification.api.dto.DlqBulkActionResponse(count, NotificationStatus.QUEUED.name(), String.format("Successfully retried %d notification(s)", count));
+    }
+
+    /**
+     * Cancels all DEAD_LETTER notifications (optionally filtered by channel).
+     */
+    @Transactional
+    public com.notification.api.dto.DlqBulkActionResponse cancelAllDlq(Channel channel) {
+        PanacheQuery<Notification> query = notificationRepository.findDlq(channel, null);
+        List<Notification> list = query.list();
+        if (list.isEmpty()) {
+            return new com.notification.api.dto.DlqBulkActionResponse(0, NotificationStatus.CANCELLED.name(), "No DEAD_LETTER notifications found to cancel");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        int count = 0;
+        for (Notification notification : list) {
+            notification.setStatus(NotificationStatus.CANCELLED);
+            notification.setUpdatedAt(now);
+            count++;
+        }
+
+        LOG.infof("Bulk cancel completed: %d notification(s) cancelled from DLQ", count);
+        return new com.notification.api.dto.DlqBulkActionResponse(count, NotificationStatus.CANCELLED.name(), String.format("Successfully cancelled %d notification(s)", count));
+    }
+
     private String serializeNotificationPayload(Notification notification) {
         try {
             Map<String, Object> payloadMap = new LinkedHashMap<>();

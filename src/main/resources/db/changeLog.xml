@@ -8,5 +8,6 @@
     <include file="db/changelog/001-initial-schema.xml"/>
     <include file="db/changelog/002-align-database-design.xml"/>
     <include file="db/changelog/003-add-outbox-scheduled-at.xml"/>
+    <include file="db/changelog/004-add-user-devices-schema.xml"/>
 
 </databaseChangeLog>
