@@ -31,6 +31,12 @@ public class DeviceResource {
     }
 
     @GET
+    public Response getAllActiveDevices() {
+        List<DeviceResponse> devices = deviceService.getAllActiveDevices();
+        return Response.ok(devices).build();
+    }
+
+    @GET
     @Path("/{userId}")
     public Response getDevices(@PathParam("userId") String userId) {
         List<DeviceResponse> devices = deviceService.getDevicesByUserId(userId);

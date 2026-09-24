@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client Application Demo - Notification Receiver</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 16px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+
+    .title-group h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .title-group p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge-disconnected {
+      background: rgba(148, 163, 184, 0.12);
+      color: #cbd5e1;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .badge-connecting {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .badge-connected {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card-heading {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      padding: 10px 14px;
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+    .btn-secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: #475569;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .preset-users {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .btn-preset {
+      padding: 4px 10px;
+      background: #0b1120;
+      color: #94a3b8;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-preset:hover {
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .token-box {
+      margin-top: 16px;
+      padding: 14px;
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .token-label {
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .token-value {
+      font-family: 'JetBrains Mono', monospace;
+      color: #38bdf8;
+      word-break: break-all;
+      line-height: 1.4;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px;
+      border-radius: 6px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+
+    .notifications-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .notification-count {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .notification-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .notification-item {
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 8px;
+      padding: 14px 16px;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .noti-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .noti-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .noti-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .noti-body {
+      font-size: 13px;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+
+    .empty-placeholder {
+      text-align: center;
+      padding: 36px 20px;
+      color: var(--text-muted);
+      font-size: 13px;
+      background: #0b1120;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+
+    .info-bar {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="title-group">
+        <h1>Client Web Application (Demo Mock)</h1>
+        <p>Ứng dụng mẫu đăng ký FCM Token và lắng nghe thông báo Push</p>
+      </div>
+      <div id="statusBadge" class="badge badge-disconnected">Chưa kết nối</div>
+    </div>
+
+    <!-- Identity & Device Registration Card -->
+    <div class="card">
+      <div class="card-heading">1. Thiết lập Người dùng & Đăng ký FCM Token</div>
+      
+      <div class="form-group">
+        <label for="userIdInput">Định danh User ID của bạn trên ứng dụng này:</label>
+        <div class="input-row">
+          <input type="text" id="userIdInput" value="user_alice" placeholder="Nhập User ID (vd: user_alice, user_bob)...">
+          <button id="btnConnect" class="btn btn-primary" onclick="registerFcmToken()">Đăng ký Token</button>
+        </div>
+
+        <div class="preset-users">
+          <button type="button" class="btn-preset" onclick="selectUser('user_alice')">user_alice</button>
+          <button type="button" class="btn-preset" onclick="selectUser('user_bob')">user_bob</button>
+          <button type="button" class="btn-preset" onclick="selectUser('user_demo')">user_demo</button>
+          <button type="button" class="btn-preset" onclick="randomUser()">Tạo ngẫu nhiên</button>
+        </div>
+      </div>
+
+      <!-- Token Status Display -->
+      <div id="tokenSection" class="token-box" style="display: none;">
+        <div class="token-label">
+          <span>FCM Device Token (Google Firebase):</span>
+          <button class="btn-preset" style="padding: 2px 8px;" onclick="copyToken()">Sao chép</button>
+        </div>
+        <div id="tokenDisplay" class="token-value"></div>
+      </div>
+
+      <div class="info-bar">
+        Luồng hoạt động: Trình duyệt xin cấp quyền Notification &rarr; Lấy token từ Firebase FCM &rarr; Gửi API <code>POST /api/v1/devices</code> đăng ký với Notification Platform Backend.
+      </div>
+    </div>
+
+    <!-- Received Notifications Card -->
+    <div class="card">
+      <div class="notifications-header">
+        <div class="card-heading" style="margin-bottom: 0;">2. Danh sách Thông Báo Nhận Được</div>
+        <div id="notiCount" class="notification-count">0 thông báo</div>
+      </div>
+
+      <div id="notificationsContainer" class="notification-list">
+        <div id="emptyPlaceholder" class="empty-placeholder">
+          Chưa nhận được thông báo nào.<br>
+          Khi Platform Admin gửi Push Notification tới User ID này, nội dung sẽ xuất hiện tại đây.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGT8G9gzkenTw0siY_n4-in3DBYmqV16w",
+      authDomain: "notification-a0c90.firebaseapp.com",
+      projectId: "notification-a0c90",
+      storageBucket: "notification-a0c90.firebasestorage.app",
+      messagingSenderId: "595475668363",
+      appId: "1:595475668363:web:f783a787f8069b687ca38e"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    let currentToken = null;
+    let receivedCount = 0;
+
+    function selectUser(id) {
+      document.getElementById('userIdInput').value = id;
+      localStorage.setItem('client_demo_user_id', id);
+      registerFcmToken();
+    }
+
+    function randomUser() {
+      const rand = 'user_' + Math.floor(1000 + Math.random() * 9000);
+      selectUser(rand);
+    }
+
+    function copyToken() {
+      if (!currentToken) return;
+      navigator.clipboard.writeText(currentToken);
+      alert('Đã sao chép FCM Token vào bộ nhớ tạm!');
+    }
+
+    function addNotificationItem(title, body) {
+      const emptyEl = document.getElementById('emptyPlaceholder');
+      if (emptyEl) emptyEl.style.display = 'none';
+
+      receivedCount++;
+      document.getElementById('notiCount').innerText = `${receivedCount} thông báo`;
+
+      const container = document.getElementById('notificationsContainer');
+      const timeStr = new Date().toLocaleTimeString();
+
+      const item = document.createElement('div');
+      item.className = 'notification-item';
+      item.innerHTML = `
+        <div class="noti-top">
+          <div class="noti-title">${escapeHtml(title || 'Thông báo không có tiêu đề')}</div>
+          <div class="noti-time">${timeStr}</div>
+        </div>
+        <div class="noti-body">${escapeHtml(body || 'Không có nội dung')}</div>
+      `;
+      container.insertBefore(item, container.firstChild);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+
+    async function registerFcmToken() {
+      const btn = document.getElementById('btnConnect');
+      const statusBadge = document.getElementById('statusBadge');
+      const userId = document.getElementById('userIdInput').value.trim() || 'user_demo';
+      localStorage.setItem('client_demo_user_id', userId);
+
+      btn.disabled = true;
+      btn.innerText = 'Đang kết nối...';
+      statusBadge.className = 'badge badge-connecting';
+      statusBadge.innerText = 'Đang lấy token...';
+
+      try {
+        if (!('serviceWorker' in navigator)) {
+          throw new Error('Trình duyệt không hỗ trợ Service Worker.');
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          throw new Error('Quyền gửi thông báo bị từ chối.');
+        }
+
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        await navigator.serviceWorker.ready;
+
+        const messaging = firebase.messaging();
+
+        // Lắng nghe Foreground message
+        messaging.onMessage((payload) => {
+          console.log('[Client Web] Nhận thông báo Push:', payload);
+          const title = payload.notification?.title || payload.data?.title || 'Thông báo mới';
+          const body = payload.notification?.body || payload.data?.body || payload.data?.content || '';
+
+          addNotificationItem(title, body);
+
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification(title, {
+                body: body,
+                icon: 'https://firebase.google.com/favicon.ico'
+              });
+            } catch (e) {
+              console.warn('Browser system notification blocked:', e);
+            }
+          }
+        });
+
+        // Lấy FCM Token
+        const token = await messaging.getToken({ serviceWorkerRegistration: registration });
+        if (!token) throw new Error('Không nhận được token từ Firebase.');
+
+        currentToken = token;
+        document.getElementById('tokenSection').style.display = 'block';
+        document.getElementById('tokenDisplay').innerText = token;
+
+        // Gửi token lên Backend
+        statusBadge.innerText = 'Đang đăng ký Backend...';
+        const res = await fetch('/api/v1/devices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userId,
+            deviceToken: token,
+            platform: 'WEB'
+          })
+        });
+
+        if (!res.ok) {
+          throw new Error(`Đăng ký API thất bại (HTTP ${res.status})`);
+        }
+
+        statusBadge.className = 'badge badge-connected';
+        statusBadge.innerText = `Token registered (${userId})`;
+        btn.innerText = 'Đã đăng ký thành công';
+        btn.className = 'btn btn-secondary';
+        btn.disabled = false;
+      } catch (err) {
+        console.error('[Client Web Error]', err);
+        statusBadge.className = 'badge badge-disconnected';
+        statusBadge.innerText = 'Lỗi kết nối';
+        btn.innerText = 'Thử lại kết nối';
+        btn.className = 'btn btn-primary';
+        btn.disabled = false;
+        alert('Lỗi: ' + err.message);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedUser = localStorage.getItem('client_demo_user_id');
+      if (savedUser) {
+        document.getElementById('userIdInput').value = savedUser;
+      }
+      if (Notification.permission === 'granted') {
+        registerFcmToken();
+      }
+    });
+  </script>
+</body>
+</html>

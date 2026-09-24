@@ -26,6 +26,10 @@ import com.notification.retry.RetryPolicy;
 import com.notification.repository.NotificationAttemptRepository;
 import com.notification.repository.NotificationRepository;
 import com.notification.repository.OutboxEventRepository;
+import com.notification.metrics.NotificationMetrics;
+import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -56,6 +60,9 @@ public class NotificationProcessor {
 
     @Inject
     ProviderRegistry providerRegistry;
+
+    @Inject
+    NotificationMetrics notificationMetrics;
 
     @Inject
     TokenBucketRateLimiter tokenBucketRateLimiter;
@@ -137,7 +144,8 @@ public class NotificationProcessor {
         });
     }
 
-    public void doProcessNotification(UUID notificationId) {
+    @WithSpan("doProcessNotification")
+    public void doProcessNotification(@SpanAttribute("notification.id") UUID notificationId) {
         OffsetDateTime attemptedAt = OffsetDateTime.now();
 
         Notification notification = notificationRepository.findById(notificationId);
@@ -187,6 +195,10 @@ public class NotificationProcessor {
 
                     notificationAttemptRepository.persist(attempt);
 
+                    if (notificationMetrics != null) {
+                        notificationMetrics.recordFailed(notification.getChannel(), "NONE", errorMsg);
+                    }
+
                     resolveDeadLetterService().routeToDlq(notification, DlqReason.NO_PROVIDER_AVAILABLE, errorMsg, null, null, null);
                     return;
                 }
@@ -209,6 +221,10 @@ public class NotificationProcessor {
                                 notification.getChannel(), waitMs);
 
                         LOG.warnf("Notification [%s] throttled by Rate Limiter: %s", notificationId, errorMsg);
+
+                        if (notificationMetrics != null) {
+                            notificationMetrics.recordThrottled(notification.getChannel());
+                        }
 
                         // Update Notification status
                         notification.setRetryCount(attemptNumber);
@@ -247,6 +263,10 @@ public class NotificationProcessor {
 
                 if (circuitBreakerEnabled && circuitBreaker != null) {
                     CircuitBreakerResult cbResult = circuitBreaker.acquirePermission(cbKey, cbConfig);
+                    if (notificationMetrics != null && cbResult != null && cbResult.getState() != null) {
+                        notificationMetrics.updateCircuitBreakerState(cbKey, cbResult.getState().name());
+                    }
+
                     if (!cbResult.isAllowed()) {
                         OffsetDateTime blockedAt = OffsetDateTime.now();
                         long waitMs = cbResult.getRetryAfterMs();
@@ -289,18 +309,33 @@ public class NotificationProcessor {
                     }
                 }
 
+                Timer.Sample timerSample = (notificationMetrics != null) ? notificationMetrics.startTimer() : null;
                 ProviderSendResult sendResult = provider.send(notification);
                 OffsetDateTime completedAt = OffsetDateTime.now();
+
+                if (notificationMetrics != null) {
+                    notificationMetrics.stopTimer(timerSample, notification.getChannel(), provider.getName());
+                }
 
                 // Record send result to Circuit Breaker
                 if (circuitBreakerEnabled && circuitBreaker != null) {
                     circuitBreaker.recordResult(cbKey, sendResult, cbConfig);
+                    if (notificationMetrics != null) {
+                        com.notification.circuitbreaker.CircuitBreakerState currentState = circuitBreaker.getState(cbKey);
+                        if (currentState != null) {
+                            notificationMetrics.updateCircuitBreakerState(cbKey, currentState.name());
+                        }
+                    }
                 }
 
                 if (sendResult.isSuccess()) {
                     // Update Notification status to DELIVERED
                     notification.setStatus(NotificationStatus.DELIVERED);
                     notification.setUpdatedAt(completedAt);
+
+                    if (notificationMetrics != null) {
+                        notificationMetrics.recordDelivered(notification.getChannel(), provider.getName());
+                    }
 
                     // Create successful NotificationAttempt
                     NotificationAttempt attempt = new NotificationAttempt();
@@ -322,6 +357,10 @@ public class NotificationProcessor {
                     OffsetDateTime failedAt = OffsetDateTime.now();
                     notification.setRetryCount(attemptNumber);
                     notification.setUpdatedAt(failedAt);
+
+                    if (notificationMetrics != null) {
+                        notificationMetrics.recordFailed(notification.getChannel(), provider.getName(), sendResult.getErrorMessage());
+                    }
 
                     RetryPolicy policy = resolveRetryPolicy();
                     boolean isRetryable = policy.getRetryClassifier().isRetryable(sendResult);

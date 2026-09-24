@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Notification Platform - Full End-to-End Demo & Admin Console</title>
+  <title>Notification Platform - Platform Admin Console</title>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js"></script>
@@ -38,7 +38,7 @@
 
     .container {
       width: 100%;
-      max-width: 1080px;
+      max-width: 1120px;
       margin: 0 auto;
     }
 
@@ -74,6 +74,53 @@
     h1 { font-size: 20px; font-weight: 700; }
     .subtitle { font-size: 13px; color: var(--text-sub); }
 
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-client-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-client-link:hover {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .flow-banner {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .flow-step {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #cbd5e1;
+    }
+    .flow-step b { color: #38bdf8; }
+
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -81,7 +128,7 @@
       margin-bottom: 20px;
     }
 
-    @media (max-width: 820px) {
+    @media (max-width: 860px) {
       .grid { grid-template-columns: 1fr; }
     }
 
@@ -159,6 +206,7 @@
       font-size: 14px;
       cursor: pointer;
       transition: all 0.2s ease;
+      font-family: inherit;
     }
     .btn-primary { background: var(--primary); color: white; }
     .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
@@ -192,17 +240,6 @@
     .log-item.success { border-left-color: var(--success); }
     .log-item.warning { border-left-color: var(--warning); }
     .log-item.danger { border-left-color: var(--danger); }
-
-    .toast-alert {
-      padding: 12px 16px;
-      border-radius: 10px;
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      color: #6ee7b7;
-      margin-top: 14px;
-      font-size: 13px;
-      display: none;
-    }
 
     .table-container {
       max-height: 280px;
@@ -290,75 +327,98 @@
       <div class="brand">
         <div class="brand-icon">⚡</div>
         <div>
-          <h1>Notification Platform Live Demo & Admin</h1>
-          <div class="subtitle">Transactional Outbox • Kafka Priority Topics • Redis Token Bucket • Circuit Breaker • DLQ Console</div>
+          <h1>Notification Platform Admin Console</h1>
+          <div class="subtitle">Trung tâm Quản trị & Điều hành Toàn diện Platform (Platform Admin / Operator)</div>
         </div>
       </div>
-      <div id="deviceStatusBadge" class="badge badge-warning">
-        <span>🟡</span> Đang kết nối...
+      <div class="header-actions">
+        <a href="/client.html" target="_blank" class="btn-client-link">
+          <span>📱</span> Mở Client Demo App
+        </a>
       </div>
+    </div>
+
+    <!-- System Flow Banner -->
+    <div class="flow-banner">
+      <div class="flow-step"><span>1.</span> Client Web đăng ký <b>FCM Token</b></div>
+      <div class="flow-step">&rarr;</div>
+      <div class="flow-step"><span>2.</span> Admin gửi tin qua <b>Admin GUI</b></div>
+      <div class="flow-step">&rarr;</div>
+      <div class="flow-step"><span>3.</span> <b>Outbox & Kafka Priority</b></div>
+      <div class="flow-step">&rarr;</div>
+      <div class="flow-step"><span>4.</span> <b>Rate Limit & Circuit Breaker</b></div>
+      <div class="flow-step">&rarr;</div>
+      <div class="flow-step"><span>5.</span> <b>Google Firebase FCM</b></div>
+      <div class="flow-step">&rarr;</div>
+      <div class="flow-step"><span>6.</span> Client Web nhận <b>Push Notification</b></div>
     </div>
 
     <!-- Grid 1: Device Registry & Notification Sender -->
     <div class="grid">
-      <!-- Cột 1: Thiết bị & Định danh User -->
+      <!-- Cột 1: Danh sách Thiết bị & Target Registry -->
       <div class="card" style="margin-bottom: 0;">
-        <div class="card-title">
-          <span>📱</span> 1. Quản lý Thiết bị Nhận (Device Registry)
+        <div class="card-title" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>📱</span> 1. Thiết Bị Client Đã Đăng Ký (Device Registry)
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" style="width: auto; padding: 4px 8px; font-size: 11px;" onclick="fetchActiveDevices()">🔄 Tải lại DS</button>
         </div>
 
-        <div class="form-group">
-          <label>Định danh User ID của bạn:</label>
-          <input id="userIdInput" type="text" value="user_demo">
+        <p style="font-size: 13px; color: var(--text-sub); margin-bottom: 12px;">
+          Danh sách các thiết bị/client application đã đăng ký FCM Token với Backend qua API <code>POST /api/v1/devices</code>.
+        </p>
+
+        <!-- Active Devices in DB -->
+        <div style="padding: 12px; background: #050811; border-radius: 10px; border: 1px solid var(--card-border); margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12px; font-weight: 600; color: #34d399;">🌐 Danh sách User/Thiết bị trong Database:</span>
+            <span id="activeDevicesCount" style="font-size: 11px; color: var(--text-sub);">0 máy</span>
+          </div>
+          <div id="activeDevicesList" style="font-size: 12px; color: var(--text-sub); max-height: 140px; overflow-y: auto;">
+            Đang tải danh sách thiết bị...
+          </div>
         </div>
 
-        <button id="btnRegister" class="btn btn-primary" onclick="autoRegisterDevice()">
-          <span>🔔</span> Đăng ký / Kích hoạt Thiết bị này
-        </button>
-
-        <div id="registerToast" class="toast-alert"></div>
-
-        <div style="margin-top: 16px; padding: 12px; background: #050811; border-radius: 8px; border: 1px solid var(--card-border);">
-          <div style="font-size: 12px; font-weight: 600; color: #93c5fd; margin-bottom: 4px;">💡 Mẹo gửi nhiều máy nhận:</div>
+        <div style="padding: 12px; background: #050811; border-radius: 10px; border: 1px solid var(--card-border);">
+          <div style="font-size: 12px; font-weight: 600; color: #93c5fd; margin-bottom: 6px;">💡 Hướng dẫn Demo Client & Admin:</div>
           <div style="font-size: 12px; color: var(--text-sub); line-height: 1.5;">
-            - <b>Gửi nhiều User cùng lúc:</b> Nhập <code>user_demo, user_alice, user_bob</code> ở form bên phải.<br>
-            - <b>Gửi tất cả máy đã kết nối:</b> Nhập <code>ALL</code> hoặc bấm nút <b>📢 Gửi Tất Cả (ALL)</b>.<br>
-            - <b>1 User nhiều máy (Laptop + ĐT):</b> Mở thêm Tab ẩn danh với cùng User ID <code>user_demo</code>.
+            1. Bấm nút <b>"Mở Client Demo App"</b> ở góc trên để mở giao diện Client trong tab mới.<br>
+            2. Tại Client App, bấm <b>"Đăng ký Token"</b> để kích hoạt FCM Token cho User ID (vd: <code>user_alice</code>).<br>
+            3. Quay lại Admin Console, bấm <b>"+ Chọn"</b> thiết bị hoặc gõ User ID để bắn thông báo trực tiếp.
           </div>
         </div>
       </div>
 
-      <!-- Cột 2: Test Sender & Tùy chỉnh số lượng & Nhiều người nhận -->
+      <!-- Cột 2: Soạn thảo & Phát Thông Báo -->
       <div class="card" style="margin-bottom: 0;">
         <div class="card-title">
-          <span>🚀</span> 2. Tùy chỉnh & Bắn Thông Báo
+          <span>🚀</span> 2. Soạn Thảo & Phát Thông Báo (Dispatcher)
         </div>
 
         <div class="form-group">
-          <label>Danh sách người nhận (Nhập nhiều User/Token cách nhau dấu phẩy <code>,</code> hoặc <code>ALL</code>):</label>
-          <input id="targetRecipientInput" type="text" value="user_demo" placeholder="Ví dụ: user_demo, user_alice, user_bob hoặc ALL">
+          <label>Người nhận (User ID / FCM Token hoặc <code>ALL</code>):</label>
+          <input id="targetRecipientInput" type="text" value="user_alice" placeholder="Ví dụ: user_alice, user_bob hoặc ALL">
           <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-sm" style="background: #1e293b; color: #93c5fd; width: auto;" onclick="setRecipient('user_demo')">+ user_demo</button>
             <button type="button" class="btn btn-sm" style="background: #1e293b; color: #93c5fd; width: auto;" onclick="setRecipient('user_alice')">+ user_alice</button>
             <button type="button" class="btn btn-sm" style="background: #1e293b; color: #93c5fd; width: auto;" onclick="setRecipient('user_bob')">+ user_bob</button>
-            <button type="button" class="btn btn-sm" style="background: #1e293b; color: #6ee7b7; width: auto;" onclick="setRecipient('user_demo, user_alice, user_bob')">+ Nhóm (3 Users)</button>
+            <button type="button" class="btn btn-sm" style="background: #1e293b; color: #93c5fd; width: auto;" onclick="setRecipient('user_demo')">+ user_demo</button>
             <button type="button" class="btn btn-sm" style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: #fff; width: auto;" onclick="setRecipient('ALL')">📢 Gửi Tất Cả (ALL)</button>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1.4fr 1fr 0.8fr; gap: 10px; margin-top: 10px;">
           <div class="form-group">
-            <label>Kênh gửi:</label>
+            <label>Kênh phát:</label>
             <select id="channelSelect">
-              <option value="EMAIL" selected>EMAIL (Mock Provider - Có Circuit Breaker)</option>
+              <option value="PUSH" selected>PUSH (Google Firebase FCM Thật)</option>
+              <option value="EMAIL">EMAIL (Mock Provider - Có Circuit Breaker)</option>
               <option value="SMS">SMS (Mock Provider - Có Circuit Breaker)</option>
-              <option value="PUSH">PUSH (Google Firebase FCM Thật)</option>
             </select>
           </div>
           <div class="form-group">
             <label>Mức ưu tiên:</label>
             <select id="prioritySelect">
-              <option value="HIGH">HIGH (Cao)</option>
+              <option value="HIGH" selected>HIGH (Cao)</option>
               <option value="CRITICAL">CRITICAL (Khẩn)</option>
               <option value="NORMAL">NORMAL (Thường)</option>
               <option value="LOW">LOW (Thấp)</option>
@@ -391,7 +451,7 @@
     <div class="card">
       <div class="card-title" style="justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span>🛡️</span> 3. Circuit Breaker (Ngắt Mạch Bảo Vệ Downstream)
+          <span>🛡️</span> 3. Circuit Breaker & Fault Injection (Bảo Vệ Hạ Tầng Downstream)
         </div>
         <button class="btn btn-primary btn-sm" onclick="fetchCircuitBreakerStatus()">
           <span>🔄</span> Làm mới trạng thái
@@ -440,7 +500,7 @@
     <div class="card">
       <div class="card-title" style="justify-content: space-between; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span>💀</span> 4. Dead Letter Queue (DLQ) Admin Console
+          <span>💀</span> 4. Dead Letter Queue (DLQ) Management Console
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="btn btn-warning btn-sm" onclick="retryAllDlq()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; font-weight: 700;">
@@ -527,38 +587,57 @@
     <div class="card">
       <div class="card-title" style="justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span>📊</span> 5. Nhật ký hoạt động thời gian thực (Live Monitor Feed)
+          <span>📊</span> 5. Nhật Ký Hoạt Động Thời Gian Thực (Live Activity Feed)
         </div>
         <span style="font-size: 12px; color: #38bdf8; cursor: pointer;" onclick="clearLogs()">Xóa log</span>
       </div>
 
       <div id="logContainer" class="log-box">
         <div class="log-item">
-          [System Ready] Hệ thống đã sẵn sàng.
+          [System Ready] Admin Console đã sẵn sàng điều khiển Notification Platform.
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyDGT8G9gzkenTw0siY_n4-in3DBYmqV16w",
-      authDomain: "notification-a0c90.firebaseapp.com",
-      projectId: "notification-a0c90",
-      storageBucket: "notification-a0c90.firebasestorage.app",
-      messagingSenderId: "595475668363",
-      appId: "1:595475668363:web:f783a787f8069b687ca38e"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    let currentDeviceToken = null;
-
     document.getElementById('massCountInput').addEventListener('input', (e) => {
       document.getElementById('massCountBtnLabel').innerText = e.target.value || '20';
     });
 
     function setRecipient(val) {
       document.getElementById('targetRecipientInput').value = val;
+    }
+
+    async function fetchActiveDevices() {
+      const container = document.getElementById('activeDevicesList');
+      const countEl = document.getElementById('activeDevicesCount');
+      try {
+        const res = await fetch('/api/v1/devices');
+        if (!res.ok) return;
+        const devices = await res.json();
+        
+        if (countEl) countEl.innerText = `${devices.length} máy`;
+        if (!devices || devices.length === 0) {
+          container.innerHTML = '<span style="color: var(--text-sub);">Chưa có Client nào đăng ký token. Mở Client Demo App để đăng ký.</span>';
+          return;
+        }
+
+        container.innerHTML = devices.map(d => {
+          const uId = d.userId || 'N/A';
+          return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; margin-bottom: 4px; background: rgba(255,255,255,0.03); border-radius: 6px;">
+            <div>
+              <b style="color: #60a5fa;">👤 ${uId}</b> 
+              <span style="font-size: 10px; color: var(--text-sub);">[${d.platform || 'WEB'}]</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" class="btn btn-sm" style="padding: 2px 8px; font-size: 11px; background: #1e293b; color: #34d399; width: auto;" onclick="setRecipient('${uId}')" title="Chọn người nhận này">+ Chọn</button>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (e) {
+        console.warn('Lỗi lấy danh sách thiết bị:', e);
+      }
     }
 
     function log(message, type = 'info') {
@@ -574,86 +653,6 @@
       document.getElementById('logContainer').innerHTML = '<div class="log-item">[Log cleared]</div>';
     }
 
-    async function autoRegisterDevice() {
-      const btn = document.getElementById('btnRegister');
-      const toast = document.getElementById('registerToast');
-      const userId = document.getElementById('userIdInput').value.trim() || 'user_demo';
-      
-      btn.innerText = 'Đang xin quyền thông báo...';
-      btn.disabled = true;
-
-      try {
-        if (!('serviceWorker' in navigator)) {
-          throw new Error('Trình duyệt không hỗ trợ Service Worker');
-        }
-
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          throw new Error('Bạn chưa cấp quyền Notification trên trình duyệt!');
-        }
-
-        btn.innerText = 'Đang kích hoạt Service Worker...';
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        await navigator.serviceWorker.ready;
-
-        const messaging = firebase.messaging();
-
-        messaging.onMessage((payload) => {
-          console.log('Nhận thông báo Foreground: ', payload);
-          const title = payload.notification?.title || 'Thông báo mới';
-          const body = payload.notification?.body || '';
-          
-          log(`🎉 <b>ĐÃ NHẬN PUSH NOTIFICATION:</b> "${title}" - ${body}`, 'success');
-
-          if (Notification.permission === 'granted') {
-            try {
-              new Notification(title, {
-                body: body,
-                icon: 'https://firebase.google.com/favicon.ico'
-              });
-            } catch (e) {
-              console.warn(e);
-            }
-          }
-        });
-
-        const token = await messaging.getToken({ serviceWorkerRegistration: registration });
-        if (!token) throw new Error('Không lấy được FCM Token!');
-
-        currentDeviceToken = token;
-
-        // GỌI API ĐĂNG KÝ THIẾT BỊ
-        btn.innerText = 'Đang đăng ký với Backend...';
-        const res = await fetch('/api/v1/devices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: userId,
-            deviceToken: token,
-            platform: 'WEB'
-          })
-        });
-
-        if (!res.ok) throw new Error(`Lỗi đăng ký API: HTTP ${res.status}`);
-
-        document.getElementById('deviceStatusBadge').className = 'badge badge-success';
-        document.getElementById('deviceStatusBadge').innerHTML = `<span>🟢</span> Đã kết nối: ${userId}`;
-        
-        toast.style.display = 'block';
-        toast.innerHTML = `✅ <b>Thiết bị này đã được gán vào User ID: <code>${userId}</code></b>`;
-
-        btn.innerText = '✅ Thiết bị đã kết nối thành công';
-        btn.className = 'btn btn-success';
-
-        log(`Thiết bị đã gán vào tài khoản: <b>${userId}</b> thành công!`, 'success');
-      } catch (err) {
-        console.error(err);
-        btn.innerText = '🔔 Thử lại kết nối thiết bị';
-        btn.disabled = false;
-        log(`Lỗi kết nối thiết bị: ${err.message}`, 'danger');
-      }
-    }
-
     async function sendSingleNotification() {
       const recipient = document.getElementById('targetRecipientInput').value.trim();
       const channel = document.getElementById('channelSelect').value;
@@ -666,7 +665,7 @@
         return;
       }
 
-      log(`🚀 Đang gửi thông báo tới <b>${recipient}</b> [${channel}/${priority}]...`, 'info');
+      log(`🚀 Admin đang phát thông báo tới <b>${recipient}</b> [${channel}/${priority}]...`, 'info');
 
       try {
         const res = await fetch('/api/v1/notifications', {
@@ -684,7 +683,7 @@
         const data = await res.json();
         const notiId = data.id || data.notificationId || 'N/A';
         if (res.status === 202) {
-          log(`✅ API phản hồi <b>202 ACCEPTED</b> | ID: <code>${notiId}</code> | Trạng thái: <b>QUEUED</b>`, 'success');
+          log(`✅ Backend xác nhận <b>202 ACCEPTED</b> | ID: <code>${notiId}</code> | Đã vào Transactional Outbox`, 'success');
         } else {
           log(`❌ Gửi thất bại: ${JSON.stringify(data)}`, 'danger');
         }
@@ -704,7 +703,7 @@
         return;
       }
 
-      log(`⚡ <b>BẮT ĐẦU GỬI MASS (${count} đợt)</b> tới <b>${recipient}</b>...`, 'warning');
+      log(`⚡ <b>BẮT ĐẦU PHÁT HÀNG LOẠT (${count} đợt)</b> tới <b>${recipient}</b> qua Kafka Priority Queue...`, 'warning');
 
       for (let i = 1; i <= count; i++) {
         fetch('/api/v1/notifications', {
@@ -753,7 +752,7 @@
     }
 
     async function simulateProviderFault(mode) {
-      log(`⚙️ Đang thiết lập chế độ Provider thành: <b>${mode}</b>...`, 'warning');
+      log(`⚙️ Admin thiết lập chế độ Provider: <b>${mode}</b>...`, 'warning');
       try {
         const res = await fetch(`/api/v1/circuit-breaker/simulate-mode?mode=${mode}`, { method: 'POST' });
         const data = await res.json();
@@ -800,7 +799,7 @@
         });
         const data = await res.json();
         const notiId = data.id || data.notificationId || 'N/A';
-        log(`⚡ Đã gửi tin ID: <code>${notiId}</code> (202 Accepted). Hãy kiểm tra xem tin có bị Fail-Fast trong log/DLQ không.`, 'info');
+        log(`⚡ Đã gửi tin ID: <code>${notiId}</code> (202 Accepted). Kiểm tra log hoặc DLQ.`, 'info');
         setTimeout(fetchCircuitBreakerStatus, 1500);
       } catch (err) {
         log(`❌ Lỗi gửi tin: ${err.message}`, 'danger');
@@ -808,7 +807,7 @@
     }
 
     async function resetCircuitBreaker() {
-      log('🔄 Đang reset Circuit Breaker về trạng thái ban đầu (CLOSED)...', 'info');
+      log('🔄 Admin đang reset Circuit Breaker về trạng thái CLOSED...', 'info');
       try {
         await fetch('/api/v1/circuit-breaker/reset', { method: 'POST' });
         log('✅ Circuit Breaker đã được reset về CLOSED!', 'success');
@@ -1016,11 +1015,9 @@
     window.addEventListener('DOMContentLoaded', () => {
       fetchDlqList();
       fetchCircuitBreakerStatus();
+      fetchActiveDevices();
       setInterval(fetchCircuitBreakerStatus, 3000);
-
-      if (Notification.permission === 'granted') {
-        autoRegisterDevice();
-      }
+      setInterval(fetchActiveDevices, 5000);
     });
   </script>
 </body>

@@ -62,7 +62,8 @@ public class NotificationService {
         return createNotificationInternal(request, true);
     }
 
-    private CreateNotificationResponse createNotificationInternal(CreateNotificationRequest request, boolean simulateFailure) {
+    private CreateNotificationResponse createNotificationInternal(CreateNotificationRequest request,
+            boolean simulateFailure) {
         // Validate recipient
         if (request.getRecipient() == null || request.getRecipient().isBlank()) {
             throw new ValidationException("recipient must not be blank");
@@ -87,13 +88,15 @@ public class NotificationService {
         String rawRecipient = request.getRecipient().trim();
 
         // 1. Check if broadcast to all active devices
-        if (channel == Channel.PUSH && (rawRecipient.equalsIgnoreCase("ALL") || rawRecipient.equalsIgnoreCase("BROADCAST") || rawRecipient.equalsIgnoreCase("@ALL"))) {
+        if (channel == Channel.PUSH && (rawRecipient.equalsIgnoreCase("ALL")
+                || rawRecipient.equalsIgnoreCase("BROADCAST") || rawRecipient.equalsIgnoreCase("@ALL"))) {
             List<UserDevice> allDevices = userDeviceRepository.findAllActiveDevices();
             if (!allDevices.isEmpty()) {
                 UUID primaryId = null;
                 NotificationStatus primaryStatus = null;
                 for (UserDevice device : allDevices) {
-                    Notification notification = persistNotificationAndOutbox(device.getDeviceToken(), channel, priority, request.getSubject(), request.getContent());
+                    Notification notification = persistNotificationAndOutbox(device.getDeviceToken(), channel, priority,
+                            request.getSubject(), request.getContent());
                     if (primaryId == null) {
                         primaryId = notification.getId();
                         primaryStatus = notification.getStatus();
@@ -113,13 +116,15 @@ public class NotificationService {
 
         for (String singleRecipient : recipientList) {
             String trimmed = singleRecipient.trim();
-            if (trimmed.isBlank()) continue;
+            if (trimmed.isBlank())
+                continue;
 
             if (channel == Channel.PUSH) {
                 List<UserDevice> activeDevices = userDeviceRepository.findActiveDevicesByUserId(trimmed);
                 if (!activeDevices.isEmpty()) {
                     for (UserDevice device : activeDevices) {
-                        Notification notification = persistNotificationAndOutbox(device.getDeviceToken(), channel, priority, request.getSubject(), request.getContent());
+                        Notification notification = persistNotificationAndOutbox(device.getDeviceToken(), channel,
+                                priority, request.getSubject(), request.getContent());
                         if (primaryId == null) {
                             primaryId = notification.getId();
                             primaryStatus = notification.getStatus();
@@ -130,7 +135,8 @@ public class NotificationService {
             }
 
             // Default: direct dispatch to raw recipient (email, phone, or raw FCM token)
-            Notification notification = persistNotificationAndOutbox(trimmed, channel, priority, request.getSubject(), request.getContent());
+            Notification notification = persistNotificationAndOutbox(trimmed, channel, priority, request.getSubject(),
+                    request.getContent());
             if (primaryId == null) {
                 primaryId = notification.getId();
                 primaryStatus = notification.getStatus();
@@ -141,10 +147,12 @@ public class NotificationService {
             throw new RuntimeException("Simulated unexpected failure to trigger transaction rollback");
         }
 
-        return new CreateNotificationResponse(primaryId != null ? primaryId : UUID.randomUUID(), primaryStatus != null ? primaryStatus : NotificationStatus.QUEUED);
+        return new CreateNotificationResponse(primaryId != null ? primaryId : UUID.randomUUID(),
+                primaryStatus != null ? primaryStatus : NotificationStatus.QUEUED);
     }
 
-    private Notification persistNotificationAndOutbox(String recipient, Channel channel, Priority priority, String subject, String content) {
+    private Notification persistNotificationAndOutbox(String recipient, Channel channel, Priority priority,
+            String subject, String content) {
         // 1. Build notification entity
         Notification notification = new Notification();
         notification.setId(UUID.randomUUID());
@@ -193,7 +201,8 @@ public class NotificationService {
             payloadMap.put("priority", notification.getPriority().name());
             payloadMap.put("status", notification.getStatus().name());
             payloadMap.put("retryCount", notification.getRetryCount());
-            payloadMap.put("providerId", notification.getProvider() != null ? notification.getProvider().getId().toString() : null);
+            payloadMap.put("providerId",
+                    notification.getProvider() != null ? notification.getProvider().getId().toString() : null);
             payloadMap.put("createdAt", notification.getCreatedAt().toString());
             return objectMapper.writeValueAsString(payloadMap);
         } catch (JsonProcessingException e) {
@@ -208,7 +217,8 @@ public class NotificationService {
         try {
             return Channel.valueOf(channelStr.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ValidationException("Invalid channel: " + channelStr + ". Supported channels: " + Arrays.toString(Channel.values()));
+            throw new ValidationException(
+                    "Invalid channel: " + channelStr + ". Supported channels: " + Arrays.toString(Channel.values()));
         }
     }
 
@@ -219,7 +229,8 @@ public class NotificationService {
         try {
             return Priority.valueOf(priorityStr.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ValidationException("Invalid priority: " + priorityStr + ". Supported priorities: " + Arrays.toString(Priority.values()));
+            throw new ValidationException("Invalid priority: " + priorityStr + ". Supported priorities: "
+                    + Arrays.toString(Priority.values()));
         }
     }
 }

@@ -62,6 +62,13 @@ public class DeviceService {
                 .collect(Collectors.toList());
     }
 
+    public List<DeviceResponse> getAllActiveDevices() {
+        return userDeviceRepository.findAllActiveDevices()
+                .stream()
+                .map(d -> new DeviceResponse(d.getId(), d.getUserId(), d.getDeviceToken(), d.getPlatform().name(), d.getIsActive(), null))
+                .collect(Collectors.toList());
+    }
+
     private Platform parsePlatform(String platformStr) {
         if (platformStr == null || platformStr.isBlank()) {
             return Platform.WEB;

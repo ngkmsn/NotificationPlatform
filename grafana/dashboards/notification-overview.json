@@ -63,8 +63,8 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(notifications_dlq_total) or vector(0)",
-          "legendFormat": "DLQ"
+          "expr": "max(notifications_dlq_current_total) or sum(notifications_dlq_total) or vector(0)",
+          "legendFormat": "DLQ in DB"
         }
       ],
       "fieldConfig": {

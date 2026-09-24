@@ -2,16 +2,20 @@ package com.notification.metrics;
 
 import com.notification.domain.Channel;
 import com.notification.domain.Priority;
+import com.notification.domain.NotificationStatus;
+import com.notification.repository.NotificationRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 @ApplicationScoped
 public class NotificationMetrics {
@@ -20,6 +24,7 @@ public class NotificationMetrics {
     public static final String METRIC_NOTIFICATIONS_DELIVERED = "notifications_delivered_total";
     public static final String METRIC_NOTIFICATIONS_FAILED = "notifications_failed_total";
     public static final String METRIC_NOTIFICATIONS_DLQ = "notifications_dlq_total";
+    public static final String METRIC_NOTIFICATIONS_DLQ_CURRENT = "notifications_dlq_current_total";
     public static final String METRIC_RATE_LIMIT_THROTTLED = "notifications_throttled_total";
     public static final String METRIC_PROVIDER_DURATION = "provider_delivery_duration_seconds";
     public static final String METRIC_CIRCUIT_BREAKER_STATE = "circuit_breaker_state";
@@ -27,7 +32,23 @@ public class NotificationMetrics {
     @Inject
     MeterRegistry registry;
 
+    private final AtomicLong dlqCurrentCount = new AtomicLong(0);
     private final ConcurrentMap<String, AtomicInteger> circuitBreakerGauges = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    public void init() {
+        if (registry != null) {
+            registry.gauge(METRIC_NOTIFICATIONS_DLQ_CURRENT, dlqCurrentCount);
+        }
+    }
+
+    public void setInitialDlqCount(long count) {
+        dlqCurrentCount.set(count);
+    }
+
+    public void decrementDlq(long count) {
+        dlqCurrentCount.updateAndGet(cur -> Math.max(0, cur - count));
+    }
 
     /**
      * Record a newly accepted notification into Transactional Outbox.
@@ -64,6 +85,7 @@ public class NotificationMetrics {
         String ch = (channel != null) ? channel.name() : "UNKNOWN";
         String r = (reason != null) ? reason : "UNKNOWN";
         registry.counter(METRIC_NOTIFICATIONS_DLQ, "channel", ch, "reason", r).increment();
+        dlqCurrentCount.incrementAndGet();
     }
 
     /**

@@ -17,6 +17,7 @@ import com.notification.domain.OutboxStatus;
 import com.notification.repository.NotificationAttemptRepository;
 import com.notification.repository.NotificationRepository;
 import com.notification.repository.OutboxEventRepository;
+import com.notification.metrics.NotificationMetrics;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import io.quarkus.panache.common.Page;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -46,6 +47,9 @@ public class DeadLetterService {
 
     @Inject
     public OutboxEventRepository outboxEventRepository;
+
+    @Inject
+    public NotificationMetrics notificationMetrics;
 
     @Inject
     public ObjectMapper objectMapper;
@@ -134,6 +138,10 @@ public class DeadLetterService {
 
         outboxEventRepository.persist(outboxEvent);
 
+        if (notificationMetrics != null) {
+            notificationMetrics.recordDlq(notification.getChannel(), reason != null ? reason.name() : "FATAL_EXCEPTION");
+        }
+
         LOG.errorf("Notification [%s] routed to DEAD_LETTER (Reason: %s, Provider: %s, Error: %s)",
                 notification.getId(), reason, providerName, errorMessage);
 
@@ -149,6 +157,9 @@ public class DeadLetterService {
 
         PanacheQuery<Notification> query = notificationRepository.findDlq(channel, recipient);
         long totalElements = query.count();
+        if (notificationMetrics != null && channel == null && (recipient == null || recipient.isBlank())) {
+            notificationMetrics.setInitialDlqCount(totalElements);
+        }
         List<Notification> list = query.page(Page.of(effectivePage, effectiveSize)).list();
 
         List<DlqNotificationSummaryResponse> items = list.stream().map(n -> new DlqNotificationSummaryResponse(
