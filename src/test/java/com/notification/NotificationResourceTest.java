@@ -296,4 +296,49 @@ public class NotificationResourceTest {
                 .then()
                 .statusCode(400);
     }
+
+    @Test
+    public void testCreateNotificationsBulk_Success() {
+        String requestBody = """
+                {
+                  "notifications": [
+                    { "recipient": "user1@example.com", "channel": "EMAIL", "subject": "Sub 1", "content": "Body 1", "priority": "NORMAL" },
+                    { "recipient": "user2@example.com", "channel": "EMAIL", "subject": "Sub 2", "content": "Body 2", "priority": "HIGH" },
+                    { "recipient": "+84901234567", "channel": "SMS", "content": "SMS Body", "priority": "CRITICAL" }
+                  ]
+                }
+                """;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(requestBody)
+                .when()
+                .post("/api/v1/notifications/bulk")
+                .then()
+                .statusCode(202)
+                .body("total", is(3))
+                .body("accepted", is(3))
+                .body("notificationIds.size()", is(3));
+    }
+
+    @Test
+    public void testCreateNotification_SystemAlertBroadcast_Forbidden() {
+        String requestBody = """
+                {
+                  "recipient": "ALL",
+                  "channel": "PUSH",
+                  "subject": "🚨 [CẢNH BÁO QUÁ TẢI] Máy chủ đạt 88% CPU",
+                  "content": "Hệ thống tự động kích hoạt Auto-Throttle",
+                  "priority": "CRITICAL"
+                }
+                """;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(requestBody)
+                .when()
+                .post("/api/v1/notifications")
+                .then()
+                .statusCode(400);
+    }
 }

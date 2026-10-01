@@ -162,18 +162,28 @@ public class DeadLetterService {
         }
         List<Notification> list = query.page(Page.of(effectivePage, effectiveSize)).list();
 
-        List<DlqNotificationSummaryResponse> items = list.stream().map(n -> new DlqNotificationSummaryResponse(
-                n.getId(),
-                n.getRecipient(),
-                n.getChannel(),
-                n.getSubject(),
-                n.getPriority(),
-                n.getStatus(),
-                n.getProvider() != null ? n.getProvider().getName() : null,
-                n.getRetryCount(),
-                n.getCreatedAt(),
-                n.getUpdatedAt()
-        )).collect(Collectors.toList());
+        List<DlqNotificationSummaryResponse> items = list.stream().map(n -> {
+            String lastError = null;
+            if (notificationAttemptRepository != null) {
+                List<NotificationAttempt> attempts = notificationAttemptRepository.findByNotificationId(n.getId());
+                if (attempts != null && !attempts.isEmpty()) {
+                    lastError = attempts.get(attempts.size() - 1).getErrorMessage();
+                }
+            }
+            return new DlqNotificationSummaryResponse(
+                    n.getId(),
+                    n.getRecipient(),
+                    n.getChannel(),
+                    n.getSubject(),
+                    n.getPriority(),
+                    n.getStatus(),
+                    n.getProvider() != null ? n.getProvider().getName() : null,
+                    n.getRetryCount(),
+                    n.getCreatedAt(),
+                    n.getUpdatedAt(),
+                    lastError
+            );
+        }).collect(Collectors.toList());
 
         return new PageResponse<>(items, effectivePage, effectiveSize, totalElements);
     }

@@ -1,4 +1,91 @@
 services:
+  # =======================================================
+  # 1. API Ingestion Microservice (Port 8080)
+  # =======================================================
+  notification-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: notification-api-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      QUARKUS_PROFILE: api
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-notification_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOSTS: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - notification-network
+
+  # =======================================================
+  # 2. Transactional Outbox Publisher Microservice (Port 8082)
+  # =======================================================
+  notification-outbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: notification-outbox-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      QUARKUS_PROFILE: outbox
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-notification_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOSTS: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - notification-network
+
+  # =======================================================
+  # 3. Notification Worker Microservice (Port 8083 - Scalable)
+  # =======================================================
+  notification-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8083"
+    environment:
+      QUARKUS_PROFILE: worker
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-notification_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOSTS: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4317
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - notification-network
+
+  # =======================================================
+  # Infrastructure Services (Shared Backend Stack)
+  # =======================================================
   postgres:
     image: postgres:16-alpine
     container_name: notification-postgres
@@ -47,8 +134,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-
-
     networks:
       - notification-network
 
@@ -88,9 +173,6 @@ services:
       echo 'Kafka topics created successfully.'
       "
 
-  # =======================================================
-  # Observability Stack: Prometheus, Tempo & Grafana
-  # =======================================================
   prometheus:
     image: prom/prometheus:v2.51.0
     container_name: notification-prometheus
@@ -101,44 +183,6 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      - cadvisor
-      - node-exporter
-    networks:
-      - notification-network
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: notification-cadvisor
-    restart: unless-stopped
-    privileged: true
-    ports:
-      - "8085:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    command:
-      - "--disable_metrics=disk,diskIO"
-    networks:
-      - notification-network
-
-  node-exporter:
-    image: prom/node-exporter:v1.8.1
-    container_name: notification-node-exporter
-    restart: unless-stopped
-    ports:
-      - "9100:9100"
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/rootfs'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
     networks:
       - notification-network
 
@@ -150,9 +194,9 @@ services:
     volumes:
       - ./tempo.yaml:/etc/tempo.yaml:ro
     ports:
-      - "4317:4317"  # OTLP gRPC receiver
-      - "4318:4318"  # OTLP HTTP receiver
-      - "3200:3200"  # Tempo HTTP query
+      - "4317:4317"
+      - "4318:4318"
+      - "3200:3200"
     networks:
       - notification-network
 
@@ -173,8 +217,6 @@ services:
     depends_on:
       - prometheus
       - tempo
-      - cadvisor
-      - node-exporter
     networks:
       - notification-network
 
@@ -189,4 +231,3 @@ volumes:
 networks:
   notification-network:
     driver: bridge
-

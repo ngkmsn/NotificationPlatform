@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +10,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg: #0f172a;
@@ -24,7 +27,12 @@
       --danger: #ef4444;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
       background-color: var(--bg);
@@ -58,6 +66,7 @@
       font-weight: 700;
       letter-spacing: -0.01em;
     }
+
     .title-group p {
       font-size: 13px;
       color: var(--text-muted);
@@ -73,16 +82,19 @@
       font-weight: 600;
       letter-spacing: 0.02em;
     }
+
     .badge-disconnected {
       background: rgba(148, 163, 184, 0.12);
       color: #cbd5e1;
       border: 1px solid rgba(148, 163, 184, 0.25);
     }
+
     .badge-connecting {
       background: rgba(245, 158, 11, 0.15);
       color: #fbbf24;
       border: 1px solid rgba(245, 158, 11, 0.3);
     }
+
     .badge-connected {
       background: rgba(16, 185, 129, 0.15);
       color: #34d399;
@@ -131,6 +143,7 @@
       font-size: 14px;
       font-family: inherit;
     }
+
     input[type="text"]:focus {
       outline: none;
       border-color: var(--primary);
@@ -150,20 +163,25 @@
       font-family: inherit;
       white-space: nowrap;
     }
+
     .btn-primary {
       background: var(--primary);
       color: #fff;
     }
+
     .btn-primary:hover:not(:disabled) {
       background: var(--primary-hover);
     }
+
     .btn-secondary {
       background: #334155;
       color: #e2e8f0;
     }
+
     .btn-secondary:hover:not(:disabled) {
       background: #475569;
     }
+
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
@@ -175,6 +193,7 @@
       margin-top: 10px;
       flex-wrap: wrap;
     }
+
     .btn-preset {
       padding: 4px 10px;
       background: #0b1120;
@@ -184,6 +203,7 @@
       font-size: 12px;
       cursor: pointer;
     }
+
     .btn-preset:hover {
       color: #fff;
       border-color: var(--primary);
@@ -197,6 +217,7 @@
       border-radius: 8px;
       font-size: 12px;
     }
+
     .token-label {
       color: var(--text-muted);
       margin-bottom: 6px;
@@ -204,6 +225,7 @@
       justify-content: space-between;
       align-items: center;
     }
+
     .token-value {
       font-family: 'JetBrains Mono', monospace;
       color: #38bdf8;
@@ -220,17 +242,97 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
+
+    .noti-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+
     .notification-count {
       font-size: 12px;
-      color: var(--text-muted);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .btn-clear {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #f87171;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 4px 8px;
+    }
+
+    .btn-clear:hover {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: #ef4444;
     }
 
     .notification-list {
       display: flex;
       flex-direction: column;
       gap: 10px;
+      min-height: 120px;
+    }
+
+    .pagination-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pagination-buttons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .btn-page {
+      background: #0b1120;
+      color: #f8fafc;
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .btn-page:hover:not(:disabled) {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .btn-page:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    select.page-select {
+      background: #0b1120;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      padding: 4px 8px;
+      font-family: inherit;
     }
 
     .notification-item {
@@ -241,9 +343,17 @@
       padding: 14px 16px;
       animation: fadeIn 0.3s ease;
     }
+
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .noti-top {
@@ -252,16 +362,19 @@
       align-items: center;
       margin-bottom: 6px;
     }
+
     .noti-title {
       font-size: 14px;
       font-weight: 600;
       color: #fff;
     }
+
     .noti-time {
       font-size: 11px;
       color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
     }
+
     .noti-body {
       font-size: 13px;
       color: #cbd5e1;
@@ -284,10 +397,11 @@
       line-height: 1.5;
       margin-top: 14px;
       padding-top: 12px;
-      border-top: 1px solid rgba(255,255,255,0.05);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <!-- Header -->
@@ -302,11 +416,12 @@
     <!-- Identity & Device Registration Card -->
     <div class="card">
       <div class="card-heading">1. Thiết lập Người dùng & Đăng ký FCM Token</div>
-      
+
       <div class="form-group">
         <label for="userIdInput">Định danh User ID của bạn trên ứng dụng này:</label>
         <div class="input-row">
-          <input type="text" id="userIdInput" value="user_alice" placeholder="Nhập User ID (vd: user_alice, user_bob)...">
+          <input type="text" id="userIdInput" value="user_alice"
+            placeholder="Nhập User ID (vd: user_alice, user_bob)...">
           <button id="btnConnect" class="btn btn-primary" onclick="registerFcmToken()">Đăng ký Token</button>
         </div>
 
@@ -328,7 +443,8 @@
       </div>
 
       <div class="info-bar">
-        Luồng hoạt động: Trình duyệt xin cấp quyền Notification &rarr; Lấy token từ Firebase FCM &rarr; Gửi API <code>POST /api/v1/devices</code> đăng ký với Notification Platform Backend.
+        Luồng hoạt động: Trình duyệt xin cấp quyền Notification &rarr; Lấy token từ Firebase FCM &rarr; Gửi API
+        <code>POST /api/v1/devices</code> đăng ký với Notification Platform Backend.
       </div>
     </div>
 
@@ -336,13 +452,36 @@
     <div class="card">
       <div class="notifications-header">
         <div class="card-heading" style="margin-bottom: 0;">2. Danh sách Thông Báo Nhận Được</div>
-        <div id="notiCount" class="notification-count">0 thông báo</div>
+        <div class="noti-controls">
+          <label style="margin: 0; font-size: 12px; color: var(--text-muted);">Hiển thị:</label>
+          <select id="clientPageSizeSelect" class="page-select" onchange="onPageSizeChange()">
+            <option value="5">5 tin/trang</option>
+            <option value="10" selected>10 tin/trang</option>
+            <option value="20">20 tin/trang</option>
+            <option value="50">50 tin/trang</option>
+          </select>
+          <div id="notiCount" class="notification-count">0 thông báo</div>
+          <button type="button" class="btn-clear" onclick="clearNotifications()">Xóa tất cả</button>
+        </div>
       </div>
 
       <div id="notificationsContainer" class="notification-list">
         <div id="emptyPlaceholder" class="empty-placeholder">
           Chưa nhận được thông báo nào.<br>
           Khi Platform Admin gửi Push Notification tới User ID này, nội dung sẽ xuất hiện tại đây.
+        </div>
+      </div>
+
+      <!-- Pagination Toolbar Footer -->
+      <div id="paginationToolbar" class="pagination-toolbar" style="display: none;">
+        <div id="pageSummaryText">Hiển thị 0 - 0 trong tổng số 0 tin</div>
+        <div class="pagination-buttons">
+          <button id="firstPageBtn" class="btn-page" onclick="goToFirstPage()" disabled>Đầu</button>
+          <button id="prevPageBtn" class="btn-page" onclick="changePage(-1)" disabled>Trước</button>
+          <span id="pageInfoText" style="padding: 0 6px; font-weight: 600; color: #fff; font-size: 12px;">Trang 1 /
+            1</span>
+          <button id="nextPageBtn" class="btn-page" onclick="changePage(1)" disabled>Sau</button>
+          <button id="lastPageBtn" class="btn-page" onclick="goToLastPage()" disabled>Cuối</button>
         </div>
       </div>
     </div>
@@ -360,7 +499,9 @@
 
     firebase.initializeApp(firebaseConfig);
     let currentToken = null;
-    let receivedCount = 0;
+    const allNotifications = [];
+    let currentPage = 0;
+    let pageSize = 10;
 
     function selectUser(id) {
       document.getElementById('userIdInput').value = id;
@@ -379,26 +520,109 @@
       alert('Đã sao chép FCM Token vào bộ nhớ tạm!');
     }
 
-    function addNotificationItem(title, body) {
-      const emptyEl = document.getElementById('emptyPlaceholder');
-      if (emptyEl) emptyEl.style.display = 'none';
+    function onPageSizeChange() {
+      const select = document.getElementById('clientPageSizeSelect');
+      pageSize = parseInt(select.value, 10) || 10;
+      currentPage = 0;
+      renderCurrentPage();
+    }
 
-      receivedCount++;
-      document.getElementById('notiCount').innerText = `${receivedCount} thông báo`;
+    function changePage(delta) {
+      const totalPages = Math.ceil(allNotifications.length / pageSize) || 1;
+      const targetPage = currentPage + delta;
+      if (targetPage >= 0 && targetPage < totalPages) {
+        currentPage = targetPage;
+        renderCurrentPage();
+      }
+    }
 
+    function goToFirstPage() {
+      if (currentPage !== 0) {
+        currentPage = 0;
+        renderCurrentPage();
+      }
+    }
+
+    function goToLastPage() {
+      const totalPages = Math.ceil(allNotifications.length / pageSize) || 1;
+      const last = Math.max(0, totalPages - 1);
+      if (currentPage !== last) {
+        currentPage = last;
+        renderCurrentPage();
+      }
+    }
+
+    function clearNotifications() {
+      allNotifications.length = 0;
+      currentPage = 0;
+      renderCurrentPage();
+    }
+
+    function renderCurrentPage() {
       const container = document.getElementById('notificationsContainer');
-      const timeStr = new Date().toLocaleTimeString();
+      const countEl = document.getElementById('notiCount');
+      const toolbar = document.getElementById('paginationToolbar');
+      const summaryText = document.getElementById('pageSummaryText');
+      const pageInfo = document.getElementById('pageInfoText');
+      const firstBtn = document.getElementById('firstPageBtn');
+      const prevBtn = document.getElementById('prevPageBtn');
+      const nextBtn = document.getElementById('nextPageBtn');
+      const lastBtn = document.getElementById('lastPageBtn');
 
-      const item = document.createElement('div');
-      item.className = 'notification-item';
-      item.innerHTML = `
-        <div class="noti-top">
-          <div class="noti-title">${escapeHtml(title || 'Thông báo không có tiêu đề')}</div>
-          <div class="noti-time">${timeStr}</div>
+      const total = allNotifications.length;
+      const totalPages = Math.ceil(total / pageSize) || 1;
+
+      if (currentPage >= totalPages) {
+        currentPage = Math.max(0, totalPages - 1);
+      }
+
+      countEl.innerText = `${total.toLocaleString()} thông báo`;
+
+      if (total === 0) {
+        toolbar.style.display = 'none';
+        container.innerHTML = `
+          <div id="emptyPlaceholder" class="empty-placeholder">
+            Chưa nhận được thông báo nào.<br>
+            Khi Platform Admin gửi Push Notification tới User ID này, nội dung sẽ xuất hiện tại đây.
+          </div>
+        `;
+        return;
+      }
+
+      toolbar.style.display = 'flex';
+
+      const startIdx = currentPage * pageSize;
+      const endIdx = Math.min(startIdx + pageSize, total);
+      const pageItems = allNotifications.slice(startIdx, endIdx);
+
+      summaryText.innerText = `Hiển thị ${startIdx + 1} - ${endIdx} trong tổng số ${total.toLocaleString()} tin`;
+      pageInfo.innerText = `Trang ${currentPage + 1} / ${totalPages.toLocaleString()}`;
+
+      firstBtn.disabled = (currentPage <= 0);
+      prevBtn.disabled = (currentPage <= 0);
+      nextBtn.disabled = (currentPage >= totalPages - 1);
+      lastBtn.disabled = (currentPage >= totalPages - 1);
+
+      container.innerHTML = pageItems.map(item => `
+        <div class="notification-item">
+          <div class="noti-top">
+            <div class="noti-title">${escapeHtml(item.title || 'Thông báo')}</div>
+            <div class="noti-time">${item.time}</div>
+          </div>
+          <div class="noti-body">${escapeHtml(item.body || 'Không có nội dung')}</div>
         </div>
-        <div class="noti-body">${escapeHtml(body || 'Không có nội dung')}</div>
-      `;
-      container.insertBefore(item, container.firstChild);
+      `).join('');
+    }
+
+    function addNotificationItem(title, body) {
+      const timeStr = new Date().toLocaleTimeString();
+      allNotifications.unshift({
+        title: title || 'Thông báo mới',
+        body: body || '',
+        time: timeStr
+      });
+
+      renderCurrentPage();
     }
 
     function escapeHtml(text) {
@@ -430,6 +654,9 @@
 
         const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         await navigator.serviceWorker.ready;
+        if (registration.active) {
+          registration.active.postMessage({ type: 'SET_ROLE', role: 'CLIENT' });
+        }
 
         const messaging = firebase.messaging();
 
@@ -438,6 +665,21 @@
           console.log('[Client Web] Nhận thông báo Push:', payload);
           const title = payload.notification?.title || payload.data?.title || 'Thông báo mới';
           const body = payload.notification?.body || payload.data?.body || payload.data?.content || '';
+
+          // CLIENT LÀ NGƯỜI DÙNG CUỐI: HOÀN TOÀN KHÔNG NHẬN CẢNH BÁO PHẦN CỨNG / HỆ THỐNG
+          // Dùng backend flag isSystemAlert là nguồn tin cậy chính
+          // Fallback: kiểm tra các keyword riêng của thông báo phần cứng nội bộ
+          const isSystemAlert = (payload.data?.isSystemAlert === 'true') ||
+                                title.toUpperCase().includes('CẢNH BÁO QUÁ TẢI') ||
+                                title.toUpperCase().includes('NGẮT KHẨN CẤP') ||
+                                title.toUpperCase().includes('HỆ THỐNG PHỤC HỒI') ||
+                                title.includes('HARDWARE_OVERLOAD') ||
+                                title.includes('CIRCUIT_BREAKER') ||
+                                title.includes('CRITICAL_CUTOFF');
+          if (isSystemAlert) {
+            console.log('[Client Web] Bỏ qua cảnh báo phần cứng nội bộ của hệ thống (Chỉ dành riêng cho Admin):', title);
+            return;
+          }
 
           addNotificationItem(title, body);
 
@@ -504,4 +746,5 @@
     });
   </script>
 </body>
+
 </html>

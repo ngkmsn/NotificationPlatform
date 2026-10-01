@@ -24,4 +24,12 @@ public class OutboxEventRepository implements PanacheRepositoryBase<OutboxEvent,
                 .page(Page.of(0, limit))
                 .list();
     }
+
+    public int markBatchAsPublished(List<UUID> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        return update("status = ?1, publishedAt = ?2 WHERE id in (?3) AND status = ?4",
+                OutboxStatus.PUBLISHED, OffsetDateTime.now(), ids, OutboxStatus.PENDING);
+    }
 }

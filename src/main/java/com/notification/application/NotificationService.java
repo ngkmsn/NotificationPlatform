@@ -2,6 +2,8 @@ package com.notification.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notification.api.dto.CreateNotificationBulkRequest;
+import com.notification.api.dto.CreateNotificationBulkResponse;
 import com.notification.api.dto.CreateNotificationRequest;
 import com.notification.api.dto.CreateNotificationResponse;
 import com.notification.domain.Channel;
@@ -20,6 +22,7 @@ import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -35,6 +38,9 @@ public class NotificationService {
 
     public static final String EVENT_TYPE_NOTIFICATION_CREATED = "NOTIFICATION_CREATED";
     public static final String EVENT_TYPE_NOTIFICATION_DEAD_LETTER = "NOTIFICATION_DEAD_LETTER";
+
+    @ConfigProperty(name = "hardware.guard.admin-recipient", defaultValue = "admin")
+    String adminRecipient;
 
     @Inject
     NotificationRepository notificationRepository;
@@ -55,6 +61,24 @@ public class NotificationService {
     @WithSpan("createNotification")
     public CreateNotificationResponse createNotification(CreateNotificationRequest request) {
         return createNotificationInternal(request, false);
+    }
+
+    @Transactional
+    @WithSpan("createNotificationsBulk")
+    public CreateNotificationBulkResponse createNotificationsBulk(CreateNotificationBulkRequest bulkRequest) {
+        if (bulkRequest == null || bulkRequest.getNotifications() == null || bulkRequest.getNotifications().isEmpty()) {
+            throw new ValidationException("notifications list must not be empty");
+        }
+
+        List<UUID> acceptedIds = new java.util.ArrayList<>(bulkRequest.getNotifications().size());
+        for (CreateNotificationRequest request : bulkRequest.getNotifications()) {
+            CreateNotificationResponse singleRes = createNotificationInternal(request, false);
+            if (singleRes != null && singleRes.getId() != null) {
+                acceptedIds.add(singleRes.getId());
+            }
+        }
+
+        return new CreateNotificationBulkResponse(bulkRequest.getNotifications().size(), acceptedIds.size(), acceptedIds);
     }
 
     @Transactional
@@ -86,6 +110,15 @@ public class NotificationService {
         }
 
         String rawRecipient = request.getRecipient().trim();
+
+        // System Hardware Alert Guard: Chặn không cho broadcast cảnh báo hệ thống nội bộ tới tất cả người dùng
+        if (isSystemHardwareAlert(request.getSubject(), request.getContent())) {
+            if (rawRecipient.equalsIgnoreCase("ALL") || rawRecipient.equalsIgnoreCase("BROADCAST")
+                    || rawRecipient.equalsIgnoreCase("@ALL")) {
+                throw new ValidationException(
+                        "System hardware alert cannot be broadcasted to standard users. Target must be administrator.");
+            }
+        }
 
         // 1. Check if broadcast to all active devices
         if (channel == Channel.PUSH && (rawRecipient.equalsIgnoreCase("ALL")
@@ -232,5 +265,11 @@ public class NotificationService {
             throw new ValidationException("Invalid priority: " + priorityStr + ". Supported priorities: "
                     + Arrays.toString(Priority.values()));
         }
+    }
+
+    private boolean isSystemHardwareAlert(String subject, String content) {
+        String s = ((subject != null ? subject : "") + " " + (content != null ? content : "")).toUpperCase();
+        return s.contains("CẢNH BÁO QUÁ TẢI") || s.contains("NGẮT KHẨN CẤP") || s.contains("HỆ THỐNG PHỤC HỒI")
+                || s.contains("HARDWARE_OVERLOAD") || s.contains("CRITICAL_CUTOFF") || s.contains("CIRCUIT_BREAKER_TRIPPED");
     }
 }

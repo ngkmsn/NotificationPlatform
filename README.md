@@ -203,6 +203,26 @@ The server will start at `http://localhost:8080`.
 
 ---
 
+## Microservices Deployment Mode (Multi-Container Architecture)
+
+The platform can be decomposed and deployed as **3 independent microservices** running in isolated Docker containers:
+
+1. **API Ingestion Service (`notification-api`)**: Handles external REST traffic, validation, device registry, and writes to the Transactional Outbox (Port `8080`).
+2. **Outbox Publisher Service (`notification-outbox`)**: Dedicated background polling publisher dispatching due events to Kafka priority topics (Port `8082`).
+3. **Notification Worker Service (`notification-worker`)**: Subscribes to Kafka priority queues, executes Token Bucket rate limiting, Circuit Breaker checks, and calls providers (Port `8083`). **Horizontally scalable.**
+
+### Launching Microservices Stack:
+```bash
+./start-microservices.sh
+```
+
+### Scale Worker Service Independently:
+```bash
+docker compose -f docker-compose.microservices.yml up -d --scale notification-worker=3
+```
+
+---
+
 ## User Interfaces
 
 ### 1. Platform Admin Console (`http://localhost:8080/index.html`)

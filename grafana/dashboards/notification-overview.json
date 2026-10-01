@@ -6,14 +6,26 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "⚡ Infrastructure & Hardware Monitoring",
+      "type": "link",
+      "url": "/d/infrastructure-monitoring"
+    }
+  ],
   "liveNow": true,
   "panels": [
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "id": 100,
-      "title": "⚡ Key System Performance & Health KPIs",
+      "title": "Key System Performance & Health KPIs",
       "type": "row"
     },
     {
@@ -24,7 +36,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(notifications_created_total) or vector(0)",
+          "expr": "max(notifications_total_count) or vector(0)",
           "legendFormat": "Created"
         }
       ],
@@ -38,13 +50,13 @@
     },
     {
       "id": 2,
-      "title": "Total Delivered (Success)",
+      "title": "Total Delivered",
       "type": "stat",
       "gridPos": { "h": 4, "w": 5, "x": 4, "y": 1 },
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(notifications_delivered_total) or vector(0)",
+          "expr": "max(notifications_delivered_count) or vector(0)",
           "legendFormat": "Delivered"
         }
       ],
@@ -63,7 +75,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "max(notifications_dlq_current_total) or sum(notifications_dlq_total) or vector(0)",
+          "expr": "max(notifications_dlq_current_total) or vector(0)",
           "legendFormat": "DLQ in DB"
         }
       ],
@@ -108,9 +120,9 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "🟢 CLOSED (OK)", "color": "green" } } },
-            { "type": "value", "options": { "1": { "text": "🟡 HALF_OPEN (Probe)", "color": "yellow" } } },
-            { "type": "value", "options": { "2": { "text": "🔴 OPEN (Trip)", "color": "red" } } }
+            { "type": "value", "options": { "0": { "text": "CLOSED (OK)", "color": "green" } } },
+            { "type": "value", "options": { "1": { "text": "HALF_OPEN (Probe)", "color": "yellow" } } },
+            { "type": "value", "options": { "2": { "text": "OPEN (Trip)", "color": "red" } } }
           ],
           "thresholds": {
             "mode": "absolute",
@@ -127,7 +139,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
       "id": 101,
-      "title": "📈 Multi-Priority Traffic & Delivery Throughput",
+      "title": "Multi-Priority Traffic & Delivery Throughput",
       "type": "row"
     },
     {
@@ -182,19 +194,23 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "id": 102,
-      "title": "🛡️ Resilience, Latency & Error Tracking",
+      "title": "Resilience, Latency & Error Tracking",
       "type": "row"
     },
     {
       "id": 8,
-      "title": "Provider Delivery Latency (P95 & Average)",
+      "title": "End-to-End & Provider Delivery Latency",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
       "datasource": "Prometheus",
       "targets": [
         {
+          "expr": "rate(notifications_delivery_latency_seconds_sum[1m]) / rate(notifications_delivery_latency_seconds_count[1m])",
+          "legendFormat": "E2E {{channel}} (sec)"
+        },
+        {
           "expr": "rate(provider_delivery_duration_seconds_sum[1m]) / rate(provider_delivery_duration_seconds_count[1m])",
-          "legendFormat": "{{provider}} (avg sec)"
+          "legendFormat": "Provider {{provider}} (sec)"
         }
       ],
       "fieldConfig": {

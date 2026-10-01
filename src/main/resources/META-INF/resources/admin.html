@@ -1,0 +1,2170 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notification Platform - Operations Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <!-- Firebase Cloud Messaging for Admin Push Notifications -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js"></script>
+  <style>
+    :root {
+      --bg-canvas: #0b0c0e;
+      --bg-sidebar: #111217;
+      --bg-panel: #181b1f;
+      --bg-panel-header: #14161a;
+      --bg-input: #0b0c0e;
+      --bg-hover: #22252b;
+      --border-subtle: #22252b;
+      --border-med: #2d3139;
+      --border-focus: #3274d9;
+      --text-primary: #f4f5f7;
+      --text-secondary: #9fa7b3;
+      --text-muted: #6e7683;
+      --primary: #3274d9;
+      --primary-hover: #2463c4;
+      --primary-subtle: rgba(50, 116, 217, 0.15);
+      --grafana-orange: #ff7800;
+      --success: #37872d;
+      --success-text: #73bf69;
+      --warning: #e07a14;
+      --warning-text: #ff9830;
+      --danger: #c4162a;
+      --danger-text: #f2495c;
+      --purple: #8f3bb8;
+      --purple-text: #b877d9;
+      --cyan-text: #5794f2;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      overflow-x: hidden;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* Layout: Sidebar + Main Content Area */
+    .sidebar {
+      width: 230px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      min-height: 100vh;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      background: #ff7800;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: #0b0c0e;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .brand-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .nav-menu {
+      padding: 12px 8px;
+      list-style: none;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 4px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 12px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .nav-item:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background-color: var(--primary-subtle);
+      color: #79a8f5;
+      font-weight: 600;
+      border-left: 3px solid var(--primary);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .nav-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .sidebar-footer {
+      padding: 14px 16px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .btn-client-launch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 7px 10px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-med);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+
+    .btn-client-launch:hover {
+      border-color: var(--primary);
+      background: var(--bg-hover);
+      color: #79a8f5;
+    }
+
+    /* Main Content Wrapper */
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: var(--bg-canvas);
+    }
+
+    /* Top Navigation / App Bar */
+    .top-bar {
+      height: 48px;
+      background-color: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .breadcrumb span.active-tab-title {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--success-text);
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.04em;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      background-color: var(--success-text);
+      border-radius: 50%;
+    }
+
+    /* Content Area & Panels */
+    .content-area {
+      padding: 16px 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Stat Widgets Bar */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 1024px) {
+      .stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .stat-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--primary);
+    }
+
+    .stat-card.orange::before {
+      background: var(--grafana-orange);
+    }
+
+    .stat-card.green::before {
+      background: var(--success-text);
+    }
+
+    .stat-card.red::before {
+      background: var(--danger-text);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 4px 0 2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Grafana Panels */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 10px 14px;
+      background: var(--bg-panel-header);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .panel-body {
+      padding: 14px;
+    }
+
+    /* Grid Form Layout */
+    .grid-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Form Controls */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 7px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-med);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-family: inherit;
+      transition: border-color 0.15s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    .input-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: #22252b;
+      border-color: var(--border-med);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background-color: #2d3139;
+    }
+
+    .btn-danger {
+      background-color: #3b1419;
+      border-color: #611820;
+      color: var(--danger-text);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background-color: #521820;
+    }
+
+    .btn-warning {
+      background-color: #3b2814;
+      border-color: #614018;
+      color: var(--warning-text);
+    }
+
+    .btn-warning:hover:not(:disabled) {
+      background-color: #523718;
+    }
+
+    .btn-success {
+      background-color: #143318;
+      border-color: #1f5726;
+      color: var(--success-text);
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background-color: #1a4720;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Tables */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--bg-panel-header);
+      padding: 8px 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-success {
+      background: rgba(55, 135, 45, 0.2);
+      color: var(--success-text);
+      border: 1px solid rgba(55, 135, 45, 0.4);
+    }
+
+    .badge-warning {
+      background: rgba(224, 122, 20, 0.2);
+      color: var(--warning-text);
+      border: 1px solid rgba(224, 122, 20, 0.4);
+    }
+
+    .badge-danger {
+      background: rgba(196, 22, 42, 0.2);
+      color: var(--danger-text);
+      border: 1px solid rgba(196, 22, 42, 0.4);
+    }
+
+    .badge-info {
+      background: rgba(50, 116, 217, 0.2);
+      color: var(--cyan-text);
+      border: 1px solid rgba(50, 116, 217, 0.4);
+    }
+
+    /* Live Log Console */
+    .log-box {
+      background: #08090a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    .log-entry {
+      padding: 3px 6px;
+      border-radius: 2px;
+      margin-bottom: 2px;
+      line-height: 1.4;
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .log-entry.info {
+      color: #cbd5e1;
+    }
+
+    .log-entry.success {
+      color: var(--success-text);
+      background: rgba(55, 135, 45, 0.08);
+    }
+
+    .log-entry.warning {
+      color: var(--warning-text);
+      background: rgba(224, 122, 20, 0.08);
+    }
+
+    .log-entry.danger {
+      color: var(--danger-text);
+      background: rgba(196, 22, 42, 0.08);
+    }
+
+    /* Circuit Breaker Status Grid */
+    .cb-card {
+      background: #111317;
+      border: 1px solid var(--border-med);
+      border-radius: 4px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    /* Pagination */
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0 0;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  </style>
+</head>
+
+<body data-page="admin">
+  <!-- Floating Toast Container for Realtime Admin Push Alerts -->
+  <div id="adminToastContainer" style="position: fixed; top: 56px; right: 20px; z-index: 999999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand-mark">NP</div>
+      <div>
+        <div class="brand-title">Notification Platform</div>
+        <div class="brand-sub">Operations Console</div>
+      </div>
+    </div>
+
+    <ul class="nav-menu">
+      <li class="nav-item active" onclick="switchTab('tab-overview', this)">
+        <span>Overview</span>
+      </li>
+      <li class="nav-item" onclick="switchTab('tab-dispatcher', this)">
+        <span>Dispatcher</span>
+      </li>
+      <li class="nav-item" onclick="switchTab('tab-queue', this)">
+        <span>In-Flight Queue</span>
+        <span id="navQueueBadge" class="nav-badge" style="background: rgba(0, 229, 255, 0.15); color: var(--cyan-text);">0</span>
+      </li>
+      <li class="nav-item" onclick="switchTab('tab-devices', this)">
+        <span>Device Registry</span>
+        <span id="navDeviceBadge" class="nav-badge">0</span>
+      </li>
+      <li class="nav-item" onclick="switchTab('tab-circuit-breaker', this)">
+        <span>Circuit Breaker</span>
+        <span id="navCbBadge" class="nav-badge">CLOSED</span>
+      </li>
+      <li class="nav-item" onclick="switchTab('tab-dlq', this)">
+        <span>Dead Letter Queue</span>
+        <span id="navDlqBadge" class="nav-badge">0</span>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="/client.html" target="_blank" class="btn-client-launch">
+        Client Demo App
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Container -->
+  <div class="main-wrapper">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <span>Console</span>
+        <span>/</span>
+        <span id="activeTabBreadcrumb" class="active-tab-title">Overview</span>
+      </div>
+
+      <div class="top-actions">
+        <div id="hardwareStatusBadge" class="badge badge-success"
+          style="font-size: 11px; padding: 4px 8px; font-family: 'JetBrains Mono', monospace;">
+          CPU: <span id="hdrCpuVal">0%</span> | RAM: <span id="hdrRamVal">0%</span> [<span
+            id="hdrHwState">NORMAL</span>]
+        </div>
+        <button id="btnSimulateOK" class="btn btn-secondary btn-sm" onclick="setSimulateLoad(true, 35.0, 40.0)"
+          title="Mô phỏng máy chủ tải nhẹ bình thường (35% CPU, 40% RAM) để test khi máy thật bị full tải">
+          Sim OK (35%)
+        </button>
+        <button id="btnSimulate85" class="btn btn-secondary btn-sm" onclick="setSimulateLoad(true, 88.0, 75.0)"
+          title="Mô phỏng tải 88% CPU (Kích hoạt Throttling: shed LOW/NORMAL)">
+          Sim 88%
+        </button>
+        <button id="btnSimulate95" class="btn btn-secondary btn-sm" onclick="setSimulateLoad(true, 97.0, 92.0)"
+          title="Mô phỏng tải 97% CPU (Kích hoạt Emergency Hard Cutoff: ngắt 100% traffic, pause Outbox)">
+          Sim 97%
+        </button>
+        <button id="btnSimulateOff" class="btn btn-secondary btn-sm" style="display: none;" onclick="setSimulateLoad(false)"
+          title="Tắt mô phỏng, quay về đọc cảm biến tải thực tế của máy chủ">
+          Dùng tải máy thật
+        </button>
+        <button id="btnAdminPushToggle" class="btn btn-secondary btn-sm" onclick="toggleAdminPushAlerts()"
+          title="Đăng ký nhận cảnh báo phần cứng (FCM Push) trực tiếp trên máy Admin">
+          Admin Push: Bật thông báo
+        </button>
+        <div class="live-indicator">
+          <span>LIVE ENGINE</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="refreshAllData()">
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- Content Workspace -->
+    <main class="content-area">
+      <!-- Top Stat Metric Cards -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Ingested Messages</div>
+          <div id="statTotalCount" class="stat-value">0</div>
+          <div class="stat-sub"><span id="statDeliveredCount">0</span> delivered (<span id="statSuccessRate">100%</span>
+            success)</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">End-to-End Latency</div>
+          <div id="statAvgLatency" class="stat-value" style="color: var(--success-text);">0.0 ms</div>
+          <div class="stat-sub">Active Devices: <span id="statDevicesCount">0</span></div>
+        </div>
+        <div class="stat-card" style="cursor: pointer;" onclick="switchTab('tab-queue', document.querySelectorAll('.nav-item')[2])" title="Bấm để mở Quản lý Hàng Đợi In-Flight">
+          <div class="stat-label">Queue In-Flight & Lag</div>
+          <div id="statPendingCount" class="stat-value" style="color: var(--cyan-text);">0</div>
+          <div class="stat-sub"><span id="statRetryingCount">0</span> retrying | Throttled: <span
+              id="statThrottledCount">0</span></div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">Dead Letter Queue</div>
+          <div id="statDlqCount" class="stat-value" style="color: var(--warning-text);">0</div>
+          <div class="stat-sub">Circuit Breaker: <b id="statCbState" style="color: var(--success-text);">CLOSED</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: OVERVIEW & TELEMETRY -->
+      <section id="tab-overview" class="tab-pane active">
+        <!-- Live Telemetry: Queue & Priority Breakdown -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+          <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-header">
+              <div class="panel-title">Priority Queue Breakdown</div>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+              <table style="font-size: 11px;">
+                <thead>
+                  <tr>
+                    <th>Priority</th>
+                    <th>In-Flight</th>
+                    <th>Delivered</th>
+                    <th>Failed</th>
+                    <th>DLQ</th>
+                  </tr>
+                </thead>
+                <tbody id="priorityTableBody">
+                  <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 12px;">Loading queue
+                      stats...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-bottom: 0;">
+            <div class="panel-header">
+              <div class="panel-title">Downstream Gateway Health</div>
+            </div>
+            <div class="panel-body" style="padding: 10px;">
+              <div id="providerHealthContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="color: var(--text-muted); font-size: 11px;">Loading gateway status...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Real-time Event Stream (Live Activity Feed)</div>
+            <button class="btn btn-secondary btn-sm" onclick="clearLogs()">Clear Log</button>
+          </div>
+          <div class="panel-body">
+            <div id="logContainer" class="log-box">
+              <div class="log-entry info">
+                <span class="log-time">[Init]</span>
+                <span>Operations console initialized. Listening to platform events...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Architecture Topology & Pipeline Status</div>
+          </div>
+          <div class="panel-body" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+              <div
+                style="background: #111317; padding: 12px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+                <div style="font-weight: 600; color: #fff; margin-bottom: 3px;">1. Ingestion Layer</div>
+                <div>PostgreSQL Transactional Outbox (Atomic commit, zero dual-write anomalies).</div>
+              </div>
+              <div
+                style="background: #111317; padding: 12px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+                <div style="font-weight: 600; color: #fff; margin-bottom: 3px;">2. Prioritization & Policies</div>
+                <div>Kafka 4-topic priority queue with Redis-backed Token Bucket rate limiting.</div>
+              </div>
+              <div
+                style="background: #111317; padding: 12px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+                <div style="font-weight: 600; color: #fff; margin-bottom: 3px;">3. Downstream & DLQ</div>
+                <div>Firebase FCM HTTP/v1, Circuit Breaker fail-fast, and Dead Letter Queue recovery.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: NOTIFICATION DISPATCHER -->
+      <section id="tab-dispatcher" class="tab-pane">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Notification Dispatch Center</div>
+          </div>
+          <div class="panel-body">
+            <div class="grid-2col">
+              <div>
+                <div class="form-group">
+                  <label>Target Recipient (User ID / Comma-separated list / ALL):</label>
+                  <input type="text" id="targetRecipientInput" value=""
+                    placeholder="Nhập User ID, danh sách (cách nhau dấu phẩy), hoặc bấm Broadcast (ALL)" oninput="syncRecipientButtons()">
+                  <div id="recipientPresetGroup" style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+                    <button type="button" class="btn btn-secondary btn-sm preset-rcpt-btn" data-val="ALL"
+                      onclick="setRecipient('ALL')">Broadcast (ALL)</button>
+                  </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label>Channel:</label>
+                    <select id="channelSelect">
+                      <option value="PUSH" selected>PUSH (Google Firebase FCM)</option>
+                      <option value="EMAIL">EMAIL (Mock Provider)</option>
+                      <option value="SMS">SMS (Mock Provider)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Priority Level:</label>
+                    <select id="prioritySelect">
+                      <option value="CRITICAL">CRITICAL (Urgent)</option>
+                      <option value="HIGH" selected>HIGH (High)</option>
+                      <option value="NORMAL">NORMAL (Default)</option>
+                      <option value="LOW">LOW (Background)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Số lượng tin gửi (Send Count):</label>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <input type="number" id="massCountInput" value="1" min="1" max="500" style="width: 100px;" oninput="syncSendButton()">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setSendCount(1)">1 tin</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setSendCount(10)">10 tin</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setSendCount(20)">20 tin</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="setSendCount(50)">50 tin</button>
+                  </div>
+                  <div class="input-hint">Điền số lượng tin muốn gửi. Nếu > 1 tin, hệ thống tự động gắn mã Ref sequence riêng cho từng tin.</div>
+                </div>
+              </div>
+
+              <div>
+                <div class="form-group">
+                  <label>Subject / Notification Title:</label>
+                  <input type="text" id="subjectInput" value="Đơn hàng đã được xác nhận!">
+                </div>
+
+                <div class="form-group">
+                  <label>Message Content / Body:</label>
+                  <textarea id="contentInput" rows="4"
+                    style="resize: vertical;">Kiện hàng của bạn đang được điều phối qua trung tâm xử lý.</textarea>
+                </div>
+
+                <div style="margin-top: 16px;">
+                  <button id="btnDispatchUnified" class="btn btn-primary" style="width: 100%; padding: 11px; font-size: 13px; font-weight: 600;"
+                    onclick="sendConfiguredNotification()">
+                    Gửi thông báo (<span id="dispatchCountBtnLabel">1</span> tin)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: DEVICE REGISTRY -->
+      <section id="tab-devices" class="tab-pane">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Registered Device Endpoints (Database Registry)</div>
+            <button class="btn btn-secondary btn-sm" onclick="fetchActiveDevices()">Refresh Devices</button>
+          </div>
+          <div class="panel-body">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Platform</th>
+                    <th>FCM Device Token</th>
+                    <th style="width: 100px; text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="devicesTableBody">
+                  <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                      Loading active device tokens...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: CIRCUIT BREAKER -->
+      <section id="tab-circuit-breaker" class="tab-pane">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Downstream Provider Circuit Breaker & Fault Simulation</div>
+            <button class="btn btn-secondary btn-sm" onclick="fetchCircuitBreakerStatus()">Refresh State</button>
+          </div>
+          <div class="panel-body">
+            <div class="cb-card">
+              <div>
+                <div style="font-size: 13px; font-weight: 600; color: #fff;">Mock Provider Circuit Breaker</div>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">
+                  Simulation Mode: <b id="cbSimModeText" style="color: var(--cyan-text);">SUCCESS</b>
+                </div>
+              </div>
+              <div id="cbStateBadge" class="badge badge-success" style="font-size: 12px; padding: 4px 10px;">
+                CLOSED (Normal)
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;">
+              <button class="btn btn-danger" onclick="simulateProviderFault('SERVER_ERROR_500')">
+                Set Provider 500 Error
+              </button>
+              <button class="btn btn-warning" onclick="sendTripBreakerBatch()">
+                Trip Circuit Breaker (6 Faults)
+              </button>
+              <button class="btn btn-success" onclick="simulateProviderFault('SUCCESS')">
+                Restore SUCCESS
+              </button>
+              <button class="btn btn-secondary" onclick="resetCircuitBreaker()">
+                Reset Circuit Breaker
+              </button>
+            </div>
+
+            <button class="btn btn-secondary" style="width: 100%; border-style: dashed; color: var(--warning-text);"
+              onclick="sendSingleBreakerTest()">
+              Send 1 Test Email (Verify 0ms Fail-Fast when Circuit is OPEN)
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: DEAD LETTER QUEUE (DLQ) -->
+      <section id="tab-dlq" class="tab-pane">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Dead Letter Queue (DLQ) Management Console</div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-warning btn-sm" onclick="retryAllDlq()">Retry All</button>
+              <button class="btn btn-danger btn-sm" onclick="cancelAllDlq()">Cancel All</button>
+              <button class="btn btn-secondary btn-sm" onclick="triggerDlqErrorTest()">Inject Error Test</button>
+              <button class="btn btn-secondary btn-sm" onclick="fetchDlqList(0)">Refresh</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <!-- Filter Toolbar -->
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="margin: 0;">Channel:</label>
+                <select id="dlqChannelFilter" style="width: auto; padding: 4px 8px; font-size: 11px;"
+                  onchange="onDlqFilterChange()">
+                  <option value="">All Channels</option>
+                  <option value="EMAIL">EMAIL</option>
+                  <option value="PUSH">PUSH</option>
+                  <option value="SMS">SMS</option>
+                </select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="margin: 0;">Page Size:</label>
+                <select id="dlqPageSizeSelect" style="width: auto; padding: 4px 8px; font-size: 11px;"
+                  onchange="onDlqPageSizeChange()">
+                  <option value="5" selected>5 / page</option>
+                  <option value="10">10 / page</option>
+                  <option value="20">20 / page</option>
+                  <option value="50">50 / page</option>
+                </select>
+              </div>
+              <div
+                style="margin-left: auto; color: var(--cyan-text); font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace;">
+                <span id="dlqTotalBadge">Total: 0 records</span>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Notification ID</th>
+                    <th>Recipient</th>
+                    <th>Channel</th>
+                    <th>Priority</th>
+                    <th>Error Reason / Failure Cause</th>
+                    <th>Status</th>
+                    <th style="width: 140px; text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="dlqTableBody">
+                  <tr>
+                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                      Loading DLQ items...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination Toolbar -->
+            <div class="pagination-bar">
+              <div id="dlqSummaryText">Showing 0 - 0 of 0 records</div>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <button id="dlqFirstBtn" class="btn btn-secondary btn-sm" onclick="goToFirstDlqPage()" disabled
+                  title="First">First</button>
+                <button id="dlqPrevBtn" class="btn btn-secondary btn-sm" onclick="changeDlqPage(-1)" disabled
+                  title="Prev">Prev</button>
+                <span id="dlqPageInfo"
+                  style="padding: 0 6px; font-weight: 600; color: #fff; font-family: 'JetBrains Mono', monospace;">Page
+                  1 / 1</span>
+                <button id="dlqNextBtn" class="btn btn-secondary btn-sm" onclick="changeDlqPage(1)" disabled
+                  title="Next">Next</button>
+                <button id="dlqLastBtn" class="btn btn-secondary btn-sm" onclick="goToLastDlqPage()" disabled
+                  title="Last">Last</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 6: IN-FLIGHT QUEUE (QUEUED NOTIFICATIONS) -->
+      <section id="tab-queue" class="tab-pane">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">In-Flight Queue Management Console</div>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                Quản lý các thông báo đang xếp hàng (QUEUED). Bấm Re-enqueue để ép Outbox đẩy lại vào Kafka, hoặc Cancel để hủy bỏ.
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-warning btn-sm" onclick="reEnqueueAllQueue()" title="Đẩy lại tất cả tin đang kẹt vào Outbox để gửi ngay">Re-enqueue All</button>
+              <button class="btn btn-danger btn-sm" onclick="cancelAllQueue()" title="Hủy toàn bộ tin đang chờ trong queue">Cancel All</button>
+              <button class="btn btn-secondary btn-sm" onclick="fetchQueueList(0)">Refresh</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <!-- Filter Toolbar -->
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="margin: 0;">Channel:</label>
+                <select id="queueChannelFilter" style="width: auto; padding: 4px 8px; font-size: 11px;" onchange="onQueueFilterChange()">
+                  <option value="">All Channels</option>
+                  <option value="EMAIL">EMAIL</option>
+                  <option value="PUSH">PUSH</option>
+                  <option value="SMS">SMS</option>
+                </select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="margin: 0;">Priority:</label>
+                <select id="queuePriorityFilter" style="width: auto; padding: 4px 8px; font-size: 11px;" onchange="onQueueFilterChange()">
+                  <option value="">All Priorities</option>
+                  <option value="CRITICAL">CRITICAL</option>
+                  <option value="HIGH">HIGH</option>
+                  <option value="NORMAL">NORMAL</option>
+                  <option value="LOW">LOW</option>
+                </select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="margin: 0;">Page Size:</label>
+                <select id="queuePageSizeSelect" style="width: auto; padding: 4px 8px; font-size: 11px;" onchange="onQueuePageSizeChange()">
+                  <option value="10" selected>10 / page</option>
+                  <option value="20">20 / page</option>
+                  <option value="50">50 / page</option>
+                </select>
+              </div>
+              <div style="margin-left: auto; color: var(--cyan-text); font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace;">
+                <span id="queueTotalBadge">Total: 0 records</span>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Notification ID</th>
+                    <th>Recipient</th>
+                    <th>Channel</th>
+                    <th>Priority</th>
+                    <th>Subject</th>
+                    <th>Queue Age</th>
+                    <th>Status</th>
+                    <th style="width: 210px; text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="queueTableBody">
+                  <tr>
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                      Loading in-flight queued items...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination Toolbar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 11px; color: var(--text-muted);">
+              <div id="queueSummaryText">Showing 0 - 0 of 0 records</div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <button class="btn btn-secondary btn-sm" id="queueFirstBtn" onclick="goToFirstQueuePage()">First</button>
+                <button class="btn btn-secondary btn-sm" id="queuePrevBtn" onclick="changeQueuePage(-1)">Prev</button>
+                <span id="queuePageInfo" style="padding: 0 8px; font-weight: 600; color: #fff; font-family: 'JetBrains Mono', monospace;">Page 1 / 1</span>
+                <button class="btn btn-secondary btn-sm" id="queueNextBtn" onclick="changeQueuePage(1)">Next</button>
+                <button class="btn btn-secondary btn-sm" id="queueLastBtn" onclick="goToLastQueuePage()">Last</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Tab Switching
+    function switchTab(tabId, navEl) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+      const targetPane = document.getElementById(tabId);
+      if (targetPane) targetPane.classList.add('active');
+      if (navEl) navEl.classList.add('active');
+
+      const title = navEl ? (navEl.querySelector('span')?.innerText || 'Console') : 'Console';
+      document.getElementById('activeTabBreadcrumb').innerText = title;
+
+      if (tabId === 'tab-queue') {
+        fetchQueueList(0);
+      } else if (tabId === 'tab-dlq') {
+        fetchDlqList(0);
+      }
+    }
+
+    function setRecipient(val) {
+      document.getElementById('targetRecipientInput').value = val;
+      syncRecipientButtons();
+    }
+
+    function syncRecipientButtons() {
+      const currentVal = document.getElementById('targetRecipientInput').value.trim();
+      const btns = document.querySelectorAll('.preset-rcpt-btn');
+      btns.forEach(btn => {
+        const val = btn.getAttribute('data-val');
+        if (val === currentVal) {
+          btn.className = 'btn btn-primary btn-sm preset-rcpt-btn';
+        } else {
+          btn.className = 'btn btn-secondary btn-sm preset-rcpt-btn';
+        }
+      });
+    }
+
+    function setSendCount(val) {
+      document.getElementById('massCountInput').value = val;
+      syncSendButton();
+    }
+
+    function syncSendButton() {
+      const count = parseInt(document.getElementById('massCountInput').value) || 1;
+      const label = document.getElementById('dispatchCountBtnLabel');
+      if (label) label.innerText = count;
+    }
+
+    async function sendConfiguredNotification() {
+      const count = parseInt(document.getElementById('massCountInput').value) || 1;
+      if (count <= 1) {
+        await sendSingleNotification();
+      } else {
+        await sendCustomMassNotifications();
+      }
+    }
+
+    function log(message, type = 'info') {
+      const logBox = document.getElementById('logContainer');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = `log-entry ${type}`;
+      div.innerHTML = `<span class="log-time">[${time}]</span> <span>${message}</span>`;
+      logBox.insertBefore(div, logBox.firstChild);
+    }
+
+    function clearLogs() {
+      document.getElementById('logContainer').innerHTML = '<div class="log-entry info"><span class="log-time">[Clear]</span><span>Logs cleared.</span></div>';
+    }
+
+    // DEVICES
+    async function fetchActiveDevices() {
+      const tbody = document.getElementById('devicesTableBody');
+      const statCount = document.getElementById('statDevicesCount');
+      const navBadge = document.getElementById('navDeviceBadge');
+
+      try {
+        const res = await fetch('/api/v1/devices');
+        if (!res.ok) return;
+        const devices = await res.json();
+
+        const count = devices.length;
+        if (statCount) statCount.innerText = count;
+        if (navBadge) navBadge.innerText = count;
+
+        if (!devices || count === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No devices registered yet. Open the Client Demo App to register.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = devices.map(d => {
+          const uId = d.userId || 'N/A';
+          const token = d.deviceToken || '';
+          return `<tr>
+            <td><b style="color: var(--cyan-text); font-family: 'JetBrains Mono', monospace;">${escapeHtml(uId)}</b></td>
+            <td><span class="badge badge-info">${escapeHtml(d.platform || 'WEB')}</span></td>
+            <td><code style="font-size: 11px; color: var(--text-muted);" title="${token}">${token.substring(0, 32)}...</code></td>
+            <td style="text-align: right;">
+              <button class="btn btn-secondary btn-sm" onclick="setRecipient('${escapeHtml(uId)}'); switchTab('tab-dispatcher', document.querySelectorAll('.nav-item')[1])">
+                Select
+              </button>
+            </td>
+          </tr>`;
+        }).join('');
+      } catch (e) {
+        console.warn('Error loading devices:', e);
+      }
+    }
+
+    // DISPATCHER
+    async function sendSingleNotification() {
+      const recipient = document.getElementById('targetRecipientInput').value.trim();
+      const channel = document.getElementById('channelSelect').value;
+      const priority = document.getElementById('prioritySelect').value;
+      const subject = document.getElementById('subjectInput').value.trim();
+      const content = document.getElementById('contentInput').value.trim();
+
+      if (!recipient) {
+        alert('Please enter a recipient!');
+        return;
+      }
+
+      log(`[DISPATCH] Dispatching notification to <b>${recipient}</b> [${channel}/${priority}]...`, 'info');
+
+      const btnUnified = document.getElementById('btnDispatchUnified');
+      if (btnUnified) btnUnified.disabled = true;
+
+      try {
+        const res = await fetch('/api/v1/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipient, channel, priority, subject, content })
+        });
+
+        const data = await res.json();
+        const notiId = data.id || data.notificationId || 'N/A';
+        if (res.status === 202) {
+          log(`[ACCEPTED] 202 ACCEPTED | ID: <code>${notiId}</code> | Outbox committed`, 'success');
+        } else if (res.status === 429) {
+          log(`[THROTTLED] 429 TOO MANY REQUESTS | Hardware Load High! ${data.message || ''}`, 'warning');
+        } else {
+          log(`[FAILED] Dispatch failed: ${JSON.stringify(data)}`, 'danger');
+        }
+      } catch (err) {
+        log(`[ERROR] API Error: ${err.message}`, 'danger');
+      } finally {
+        if (btnUnified) btnUnified.disabled = false;
+        if (typeof fetchDashboardData === 'function') fetchDashboardData();
+      }
+    }
+
+    async function sendCustomMassNotifications() {
+      const recipient = document.getElementById('targetRecipientInput').value.trim();
+      const channel = document.getElementById('channelSelect').value;
+      const priority = document.getElementById('prioritySelect').value;
+      const baseSubject = document.getElementById('subjectInput').value.trim() || 'Hệ thống thông báo';
+      const baseContent = document.getElementById('contentInput').value.trim() || 'Cập nhật trạng thái giao dịch';
+      const count = parseInt(document.getElementById('massCountInput').value) || 20;
+
+      if (!recipient) {
+        alert('Please enter a recipient!');
+        return;
+      }
+
+      const batchTimestamp = Date.now();
+      log(`[BATCH] Bắt đầu điều phối lô ${count} tin tới [${recipient}] (${channel}/${priority})...`, 'info');
+
+      const btnUnified = document.getElementById('btnDispatchUnified');
+      if (btnUnified) btnUnified.disabled = true;
+
+      const startTime = performance.now();
+
+      // Gom toàn bộ thành danh sách payload gửi 1 request duy nhất qua Bulk API
+      const notifications = [];
+      for (let i = 1; i <= count; i++) {
+        const seq = String(i).padStart(4, '0');
+        const refCode = `TXN-${batchTimestamp}-${seq}`;
+        const subject = `${baseSubject} [Ref #${refCode}]`;
+        const content = `${baseContent}. Mã giao dịch: #${refCode}.`;
+        notifications.push({ recipient, channel, priority, subject, content });
+      }
+
+      try {
+        const res = await fetch('/api/v1/notifications/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notifications })
+        });
+
+        const elapsedMs = Math.round(performance.now() - startTime);
+
+        if (res.status === 202) {
+          const data = await res.json();
+          log(`[BATCH_DONE] Thành công! Đã tiếp nhận toàn bộ ${data.accepted || count}/${count} tin vào Outbox trong ${elapsedMs}ms (HTTP 202).`, 'success');
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          log(`[BATCH_ERR] Gửi lô thất bại: HTTP ${res.status} - ${errData.message || res.statusText}`, 'danger');
+        }
+      } catch (err) {
+        log(`[BATCH_ERR] Lỗi mạng khi gửi lô: ${err.message}`, 'danger');
+      } finally {
+        if (btnUnified) btnUnified.disabled = false;
+        if (typeof fetchDashboardData === 'function') fetchDashboardData();
+        if (typeof fetchCircuitBreakerStatus === 'function') fetchCircuitBreakerStatus();
+      }
+    }
+
+    // CIRCUIT BREAKER
+    async function fetchCircuitBreakerStatus() {
+      try {
+        const res = await fetch('/api/v1/circuit-breaker');
+        const data = await res.json();
+
+        const state = data.mockProviderState || 'CLOSED';
+        const badge = document.getElementById('cbStateBadge');
+        const statCb = document.getElementById('statCbState');
+        const navCb = document.getElementById('navCbBadge');
+
+        document.getElementById('cbSimModeText').innerText = data.mockSimulationMode || 'SUCCESS';
+        if (statCb) statCb.innerText = state;
+        if (navCb) navCb.innerText = state;
+
+        if (state === 'OPEN') {
+          badge.className = 'badge badge-danger';
+          badge.innerHTML = 'OPEN (Fail-Fast Active)';
+          if (statCb) statCb.style.color = 'var(--danger-text)';
+        } else if (state === 'HALF_OPEN') {
+          badge.className = 'badge badge-warning';
+          badge.innerHTML = 'HALF_OPEN (Probing)';
+          if (statCb) statCb.style.color = 'var(--warning-text)';
+        } else {
+          badge.className = 'badge badge-success';
+          badge.innerHTML = 'CLOSED (Normal)';
+          if (statCb) statCb.style.color = 'var(--success-text)';
+        }
+      } catch (e) {
+        console.warn('Error fetching CB status:', e);
+      }
+    }
+
+    async function simulateProviderFault(mode) {
+      log(`[CONFIG] Configured mock provider fault mode: <b>${mode}</b>`, 'warning');
+      try {
+        const res = await fetch(`/api/v1/circuit-breaker/simulate-mode?mode=${mode}`, { method: 'POST' });
+        const data = await res.json();
+        log(`[CONFIG_OK] Mock Provider mode updated: <b>${data.currentMode}</b>`, mode === 'SUCCESS' ? 'success' : 'danger');
+        fetchCircuitBreakerStatus();
+      } catch (err) {
+        log(`[CONFIG_ERR] Error configuring mode: ${err.message}`, 'danger');
+      }
+    }
+
+    async function sendTripBreakerBatch() {
+      log('[TEST] Dispatching 6 partner emails to test Circuit Breaker trip threshold...', 'warning');
+      for (let i = 1; i <= 6; i++) {
+        const refId = 20000 + i;
+        fetch('/api/v1/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: `user_partner_${i}@example.com`,
+            channel: "EMAIL",
+            priority: "HIGH",
+            subject: `Hóa đơn thanh toán #${refId}`,
+            content: `Chi tiết giao dịch #${refId} gửi qua cổng downstream.`
+          })
+        }).then(() => {
+          log(`[TEST_SENT] Sent fault candidate message #${i} [Invoice #${refId}]`, 'info');
+        });
+      }
+      setTimeout(fetchCircuitBreakerStatus, 3500);
+    }
+
+    async function sendSingleBreakerTest() {
+      log('[TEST] Testing single dispatch with Fail-Fast check...', 'warning');
+      try {
+        const res = await fetch('/api/v1/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: "user_test_breaker@example.com",
+            channel: "EMAIL",
+            priority: "HIGH",
+            subject: "Circuit Breaker Single Test",
+            content: "Testing 0ms fail-fast protection against open downstream."
+          })
+        });
+        const data = await res.json();
+        log(`[TEST_ACK] Message registered: <code>${data.id || 'N/A'}</code> (202 Accepted)`, 'info');
+        setTimeout(fetchCircuitBreakerStatus, 1500);
+      } catch (err) {
+        log(`[TEST_ERR] Error: ${err.message}`, 'danger');
+      }
+    }
+
+    async function resetCircuitBreaker() {
+      log('[RESET] Resetting Circuit Breaker to CLOSED state...', 'info');
+      try {
+        await fetch('/api/v1/circuit-breaker/reset', { method: 'POST' });
+        log('[RESET_OK] Circuit Breaker states reset to CLOSED.', 'success');
+        fetchCircuitBreakerStatus();
+      } catch (err) {
+        log(`[RESET_ERR] Reset error: ${err.message}`, 'danger');
+      }
+    }
+
+    // DLQ STATE & PAGINATION
+    let dlqCurrentPage = 0;
+    let dlqPageSize = 5;
+    let dlqTotalPages = 1;
+    let dlqTotalElements = 0;
+
+    function onDlqFilterChange() {
+      dlqCurrentPage = 0;
+      fetchDlqList(0);
+    }
+
+    function onDlqPageSizeChange() {
+      const sizeSelect = document.getElementById('dlqPageSizeSelect');
+      dlqPageSize = parseInt(sizeSelect.value, 10) || 5;
+      dlqCurrentPage = 0;
+      fetchDlqList(0);
+    }
+
+    function changeDlqPage(delta) {
+      const targetPage = dlqCurrentPage + delta;
+      if (targetPage >= 0 && targetPage < dlqTotalPages) {
+        fetchDlqList(targetPage);
+      }
+    }
+
+    function goToFirstDlqPage() {
+      if (dlqCurrentPage !== 0) fetchDlqList(0);
+    }
+
+    function goToLastDlqPage() {
+      const last = Math.max(0, dlqTotalPages - 1);
+      if (dlqCurrentPage !== last) fetchDlqList(last);
+    }
+
+    async function fetchDlqList(page = dlqCurrentPage) {
+      dlqCurrentPage = page;
+      const tbody = document.getElementById('dlqTableBody');
+      const channelFilter = document.getElementById('dlqChannelFilter')?.value || '';
+      const statDlq = document.getElementById('statDlqCount');
+      const navDlq = document.getElementById('navDlqBadge');
+
+      let url = `/api/v1/dlq?page=${dlqCurrentPage}&size=${dlqPageSize}`;
+      if (channelFilter) {
+        url += `&channel=${encodeURIComponent(channelFilter)}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        dlqTotalElements = data.totalElements || 0;
+        dlqTotalPages = data.totalPages || (dlqTotalElements > 0 ? Math.ceil(dlqTotalElements / dlqPageSize) : 1);
+        if (dlqTotalPages === 0) dlqTotalPages = 1;
+
+        if (statDlq) statDlq.innerText = dlqTotalElements;
+        if (navDlq) navDlq.innerText = dlqTotalElements;
+
+        const totalBadge = document.getElementById('dlqTotalBadge');
+        if (totalBadge) totalBadge.innerText = `Total: ${dlqTotalElements} records`;
+
+        const startIdx = dlqTotalElements === 0 ? 0 : (dlqCurrentPage * dlqPageSize + 1);
+        const endIdx = Math.min((dlqCurrentPage + 1) * dlqPageSize, dlqTotalElements);
+        const summaryText = document.getElementById('dlqSummaryText');
+        if (summaryText) summaryText.innerText = `Showing ${startIdx} - ${endIdx} of ${dlqTotalElements} records`;
+
+        const pageInfo = document.getElementById('dlqPageInfo');
+        if (pageInfo) pageInfo.innerText = `Page ${dlqTotalElements === 0 ? 1 : (dlqCurrentPage + 1)} / ${dlqTotalPages}`;
+
+        const firstBtn = document.getElementById('dlqFirstBtn');
+        const prevBtn = document.getElementById('dlqPrevBtn');
+        const nextBtn = document.getElementById('dlqNextBtn');
+        const lastBtn = document.getElementById('dlqLastBtn');
+
+        if (firstBtn) firstBtn.disabled = (dlqCurrentPage <= 0);
+        if (prevBtn) prevBtn.disabled = (dlqCurrentPage <= 0);
+        if (nextBtn) nextBtn.disabled = (dlqCurrentPage >= dlqTotalPages - 1 || dlqTotalElements === 0);
+        if (lastBtn) lastBtn.disabled = (dlqCurrentPage >= dlqTotalPages - 1 || dlqTotalElements === 0);
+
+        if (!data.items || data.items.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--success-text); padding: 20px;">Dead Letter Queue is empty. All messages delivered.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = data.items.map(item => `
+          <tr>
+            <td><code style="font-size: 11px;" title="${item.id}">${item.id ? item.id.substring(0, 8) + '...' : 'N/A'}</code></td>
+            <td><b style="color: var(--cyan-text); font-family: 'JetBrains Mono', monospace;" title="${item.recipient || ''}">${item.recipient ? (item.recipient.length > 18 ? item.recipient.substring(0, 18) + '...' : item.recipient) : 'N/A'}</b></td>
+            <td><span class="badge badge-warning">${item.channel}</span></td>
+            <td><span class="badge badge-info">${item.priority}</span></td>
+            <td style="max-width: 300px;">
+              <div style="color: var(--danger-text); font-size: 11px; font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.errorMessage || 'Non-retryable downstream fault')}">
+                ${escapeHtml(item.errorMessage || 'Non-retryable downstream error / max retries exceeded')}
+              </div>
+            </td>
+            <td><span class="badge badge-danger">${item.status}</span></td>
+            <td style="text-align: right;">
+              <button class="btn btn-secondary btn-sm" onclick="retryDlqItem('${item.id}')" title="Replay">Retry</button>
+              <button class="btn btn-danger btn-sm" style="margin-left: 4px;" onclick="cancelDlqItem('${item.id}')" title="Cancel">Cancel</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--danger-text); padding: 20px;">Error loading DLQ: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function triggerDlqErrorTest() {
+      log('[TEST] Injecting invalid token test to verify DLQ quarantine...', 'warning');
+      try {
+        const res = await fetch('/api/v1/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recipient: "invalid_fcm_token_dlq_test_token_9999",
+            channel: "PUSH",
+            priority: "HIGH",
+            subject: "DLQ Quarantine Test",
+            content: "This notification will be rejected by Firebase and quarantined into DLQ."
+          })
+        });
+        const data = await res.json();
+        log(`[TEST_INJECTED] Injected error message ID: <code>${data.id || 'N/A'}</code>`, 'danger');
+        setTimeout(() => fetchDlqList(0), 3000);
+      } catch (err) {
+        log(`[TEST_ERR] DLQ test error: ${err.message}`, 'danger');
+      }
+    }
+
+    async function retryDlqItem(id) {
+      log(`[DLQ_RETRY] Replaying DLQ notification: <code>${id}</code>...`, 'info');
+      try {
+        const res = await fetch(`/api/v1/dlq/${id}/retry`, { method: 'POST' });
+        const data = await res.json();
+        log(`[RETRY_OK] Replayed successfully! Status: <b>${data.status}</b>`, 'success');
+        fetchDlqList(dlqCurrentPage);
+      } catch (err) {
+        log(`[RETRY_ERR] Retry error: ${err.message}`, 'danger');
+      }
+    }
+
+    async function cancelDlqItem(id) {
+      if (!confirm(`Cancel and purge DLQ message (${id})?`)) return;
+      log(`[DLQ_CANCEL] Canceling DLQ message: <code>${id}</code>...`, 'warning');
+      try {
+        const res = await fetch(`/api/v1/dlq/${id}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        log(`[CANCEL_OK] Canceled message ID <code>${id}</code>! Status: <b>${data.status}</b>`, 'success');
+        fetchDlqList(dlqCurrentPage);
+      } catch (err) {
+        log(`[CANCEL_ERR] Cancel error: ${err.message}`, 'danger');
+      }
+    }
+
+    async function retryAllDlq() {
+      const channelFilter = document.getElementById('dlqChannelFilter')?.value || '';
+      const filterText = channelFilter ? `in channel ${channelFilter}` : 'across all channels';
+      if (!confirm(`Retry ALL failed messages ${filterText}?`)) return;
+
+      log(`[BULK_RETRY] Replaying ALL DLQ messages (${filterText})...`, 'warning');
+      try {
+        let url = '/api/v1/dlq/retry-all';
+        if (channelFilter) url += `?channel=${encodeURIComponent(channelFilter)}`;
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        log(`[BULK_OK] ${data.message}`, 'success');
+        fetchDlqList(0);
+      } catch (err) {
+        log(`[BULK_ERR] Bulk retry error: ${err.message}`, 'danger');
+      }
+    }
+
+    async function cancelAllDlq() {
+      const channelFilter = document.getElementById('dlqChannelFilter')?.value || '';
+      const filterText = channelFilter ? `in channel ${channelFilter}` : 'across all channels';
+      if (!confirm(`WARNING: Permanently CANCEL ALL failed messages ${filterText}?`)) return;
+
+      log(`[BULK_CANCEL] Canceling ALL DLQ messages (${filterText})...`, 'danger');
+      try {
+        let url = '/api/v1/dlq/cancel-all';
+        if (channelFilter) url += `?channel=${encodeURIComponent(channelFilter)}`;
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        log(`[BULK_OK] ${data.message}`, 'success');
+        fetchDlqList(0);
+      } catch (err) {
+        log(`[BULK_ERR] Bulk cancel error: ${err.message}`, 'danger');
+      }
+    }
+
+    // ==========================================
+    // IN-FLIGHT QUEUE MANAGEMENT
+    // ==========================================
+    let queueCurrentPage = 0;
+    let queuePageSize = 10;
+    let queueTotalPages = 1;
+    let queueTotalElements = 0;
+
+    function onQueueFilterChange() {
+      fetchQueueList(0);
+    }
+
+    function onQueuePageSizeChange() {
+      const select = document.getElementById('queuePageSizeSelect');
+      if (select) {
+        queuePageSize = parseInt(select.value, 10) || 10;
+      }
+      fetchQueueList(0);
+    }
+
+    function changeQueuePage(delta) {
+      const targetPage = queueCurrentPage + delta;
+      if (targetPage >= 0 && targetPage < queueTotalPages) {
+        fetchQueueList(targetPage);
+      }
+    }
+
+    function goToFirstQueuePage() {
+      if (queueCurrentPage !== 0) fetchQueueList(0);
+    }
+
+    function goToLastQueuePage() {
+      const last = Math.max(0, queueTotalPages - 1);
+      if (queueCurrentPage !== last) fetchQueueList(last);
+    }
+
+    function formatQueueAge(seconds) {
+      if (!seconds || seconds <= 0) return 'Just now';
+      if (seconds < 60) return `${seconds}s`;
+      const m = Math.floor(seconds / 60);
+      if (m < 60) return `${m}m ${seconds % 60}s`;
+      const h = Math.floor(m / 60);
+      return `${h}h ${m % 60}m`;
+    }
+
+    async function fetchQueueList(page = queueCurrentPage) {
+      queueCurrentPage = page;
+      const tbody = document.getElementById('queueTableBody');
+      const channelFilter = document.getElementById('queueChannelFilter')?.value || '';
+      const priorityFilter = document.getElementById('queuePriorityFilter')?.value || '';
+      const statPending = document.getElementById('statPendingCount');
+      const navQueue = document.getElementById('navQueueBadge');
+
+      let url = `/api/v1/queue?page=${queueCurrentPage}&size=${queuePageSize}`;
+      if (channelFilter) url += `&channel=${encodeURIComponent(channelFilter)}`;
+      if (priorityFilter) url += `&priority=${encodeURIComponent(priorityFilter)}`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        queueTotalElements = data.totalElements || 0;
+        queueTotalPages = data.totalPages || (queueTotalElements > 0 ? Math.ceil(queueTotalElements / queuePageSize) : 1);
+        if (queueTotalPages === 0) queueTotalPages = 1;
+
+        if (statPending) statPending.innerText = queueTotalElements;
+        if (navQueue) navQueue.innerText = queueTotalElements;
+
+        const totalBadge = document.getElementById('queueTotalBadge');
+        if (totalBadge) totalBadge.innerText = `Total: ${queueTotalElements} records`;
+
+        const startIdx = queueTotalElements === 0 ? 0 : (queueCurrentPage * queuePageSize + 1);
+        const endIdx = Math.min((queueCurrentPage + 1) * queuePageSize, queueTotalElements);
+        const summaryText = document.getElementById('queueSummaryText');
+        if (summaryText) summaryText.innerText = `Showing ${startIdx} - ${endIdx} of ${queueTotalElements} records`;
+
+        const pageInfo = document.getElementById('queuePageInfo');
+        if (pageInfo) pageInfo.innerText = `Page ${queueTotalElements === 0 ? 1 : (queueCurrentPage + 1)} / ${queueTotalPages}`;
+
+        const firstBtn = document.getElementById('queueFirstBtn');
+        const prevBtn = document.getElementById('queuePrevBtn');
+        const nextBtn = document.getElementById('queueNextBtn');
+        const lastBtn = document.getElementById('queueLastBtn');
+
+        if (firstBtn) firstBtn.disabled = (queueCurrentPage <= 0);
+        if (prevBtn) prevBtn.disabled = (queueCurrentPage <= 0);
+        if (nextBtn) nextBtn.disabled = (queueCurrentPage >= queueTotalPages - 1 || queueTotalElements === 0);
+        if (lastBtn) lastBtn.disabled = (queueCurrentPage >= queueTotalPages - 1 || queueTotalElements === 0);
+
+        if (!data.items || data.items.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--success-text); padding: 20px;">Hàng đợi trống. Không có thông báo nào bị kẹt.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = data.items.map(item => `
+          <tr>
+            <td><code style="font-size: 11px;" title="${item.id}">${item.id ? item.id.substring(0, 8) + '...' : 'N/A'}</code></td>
+            <td><b style="color: var(--cyan-text); font-family: 'JetBrains Mono', monospace;" title="${item.recipient || ''}">${item.recipient ? (item.recipient.length > 20 ? item.recipient.substring(0, 20) + '...' : item.recipient) : 'N/A'}</b></td>
+            <td><span class="badge badge-warning">${item.channel}</span></td>
+            <td><span class="badge ${item.priority === 'CRITICAL' ? 'badge-danger' : item.priority === 'HIGH' ? 'badge-warning' : 'badge-info'}">${item.priority}</span></td>
+            <td style="max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.subject || 'No subject')}">
+              ${escapeHtml(item.subject || '(Không có tiêu đề)')}
+            </td>
+            <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: ${item.queueAgeSeconds > 300 ? 'var(--warning-text)' : 'var(--text-muted)'};">${formatQueueAge(item.queueAgeSeconds)}</span></td>
+            <td><span class="badge" style="background: rgba(0, 229, 255, 0.15); color: var(--cyan-text);">${item.status}</span></td>
+            <td style="text-align: right;">
+              <button class="btn btn-secondary btn-sm" onclick="reEnqueueQueueItem('${item.id}')" title="Ép đẩy lại vào Outbox để gửi">Re-send</button>
+              ${item.priority !== 'CRITICAL' ? `<button class="btn btn-warning btn-sm" style="margin-left: 4px;" onclick="promoteQueueItem('${item.id}')" title="Nâng lên CRITICAL">Promote CRITICAL</button>` : ''}
+              <button class="btn btn-danger btn-sm" style="margin-left: 4px;" onclick="cancelQueueItem('${item.id}')" title="Hủy bỏ tin này">Cancel</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger-text); padding: 20px;">Lỗi tải danh sách hàng đợi: ${err.message}</td></tr>`;
+      }
+    }
+
+    async function reEnqueueQueueItem(id) {
+      log(`[QUEUE_RE_ENQUEUE] Đang đẩy lại tin ID <code>${id}</code> vào Outbox...`, 'info');
+      try {
+        const res = await fetch(`/api/v1/queue/${id}/re-enqueue`, { method: 'POST' });
+        const data = await res.json();
+        log(`[RE_ENQUEUE_OK] ${data.message}`, 'success');
+        fetchQueueList(queueCurrentPage);
+        fetchDashboardData();
+      } catch (err) {
+        log(`[RE_ENQUEUE_ERR] Lỗi: ${err.message}`, 'danger');
+      }
+    }
+
+    async function cancelQueueItem(id) {
+      if (!confirm(`Bạn có chắc muốn HỦY thông báo ID (${id})?`)) return;
+      log(`[QUEUE_CANCEL] Đang hủy thông báo <code>${id}</code>...`, 'warning');
+      try {
+        const res = await fetch(`/api/v1/queue/${id}/cancel`, { method: 'POST' });
+        const data = await res.json();
+        log(`[CANCEL_OK] ${data.message}`, 'success');
+        fetchQueueList(queueCurrentPage);
+        fetchDashboardData();
+      } catch (err) {
+        log(`[CANCEL_ERR] Lỗi: ${err.message}`, 'danger');
+      }
+    }
+
+    async function promoteQueueItem(id) {
+      log(`[QUEUE_PROMOTE] Nâng độ ưu tiên tin <code>${id}</code> lên CRITICAL...`, 'info');
+      try {
+        const res = await fetch(`/api/v1/queue/${id}/promote-critical`, { method: 'POST' });
+        const data = await res.json();
+        log(`[PROMOTE_OK] ${data.message}`, 'success');
+        fetchQueueList(queueCurrentPage);
+        fetchDashboardData();
+      } catch (err) {
+        log(`[PROMOTE_ERR] Lỗi: ${err.message}`, 'danger');
+      }
+    }
+
+    async function reEnqueueAllQueue() {
+      const channelFilter = document.getElementById('queueChannelFilter')?.value || '';
+      const priorityFilter = document.getElementById('queuePriorityFilter')?.value || '';
+      const filterText = (channelFilter || priorityFilter) ? `(Filter: ${channelFilter || 'ALL'} / ${priorityFilter || 'ALL'})` : 'tất cả các kênh';
+      if (!confirm(`ÉP GỬI LẠI TOÀN BỘ thông báo đang kẹt trong hàng đợi ${filterText}? Outbox sẽ ngay lập tức đẩy lại vào Kafka.`)) return;
+
+      log(`[BULK_RE_ENQUEUE] Đang tạo lại sự kiện Outbox cho toàn bộ tin kẹt ${filterText}...`, 'warning');
+      try {
+        let url = '/api/v1/queue/re-enqueue-all?';
+        if (channelFilter) url += `&channel=${encodeURIComponent(channelFilter)}`;
+        if (priorityFilter) url += `&priority=${encodeURIComponent(priorityFilter)}`;
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        log(`[BULK_RE_ENQUEUE_OK] ${data.message}`, 'success');
+        fetchQueueList(0);
+        fetchDashboardData();
+      } catch (err) {
+        log(`[BULK_RE_ENQUEUE_ERR] Lỗi: ${err.message}`, 'danger');
+      }
+    }
+
+    async function cancelAllQueue() {
+      const channelFilter = document.getElementById('queueChannelFilter')?.value || '';
+      const priorityFilter = document.getElementById('queuePriorityFilter')?.value || '';
+      const filterText = (channelFilter || priorityFilter) ? `(Filter: ${channelFilter || 'ALL'} / ${priorityFilter || 'ALL'})` : 'tất cả';
+      if (!confirm(`CẢNH BÁO: Bạn có chắc muốn HỦY BỎ TOÀN BỘ thông báo đang chờ ${filterText}? Hành động này không thể hoàn tác.`)) return;
+
+      log(`[BULK_CANCEL] Đang hủy toàn bộ thông báo trong hàng đợi ${filterText}...`, 'danger');
+      try {
+        let url = '/api/v1/queue/cancel-all?';
+        if (channelFilter) url += `&channel=${encodeURIComponent(channelFilter)}`;
+        if (priorityFilter) url += `&priority=${encodeURIComponent(priorityFilter)}`;
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        log(`[BULK_CANCEL_OK] ${data.message}`, 'success');
+        fetchQueueList(0);
+        fetchDashboardData();
+      } catch (err) {
+        log(`[BULK_CANCEL_ERR] Lỗi: ${err.message}`, 'danger');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+
+    async function fetchDashboardData() {
+      try {
+        // 1. Overview stats
+        const resOverview = await fetch('/api/v1/dashboard/overview');
+        if (resOverview.ok) {
+          const data = await resOverview.json();
+          const totalEl = document.getElementById('statTotalCount');
+          const deliveredEl = document.getElementById('statDeliveredCount');
+          const successRateEl = document.getElementById('statSuccessRate');
+          const avgLatEl = document.getElementById('statAvgLatency');
+          const pendingEl = document.getElementById('statPendingCount');
+          const retryingEl = document.getElementById('statRetryingCount');
+          const throttledEl = document.getElementById('statThrottledCount');
+          const devEl = document.getElementById('statDevicesCount');
+          const dlqEl = document.getElementById('statDlqCount');
+          const navQueue = document.getElementById('navQueueBadge');
+
+          if (totalEl) totalEl.innerText = (data.totalCreated || 0).toLocaleString();
+          if (deliveredEl) deliveredEl.innerText = (data.totalDelivered || 0).toLocaleString();
+          if (successRateEl) successRateEl.innerText = `${data.successRatePercent || 100}%`;
+          if (avgLatEl) avgLatEl.innerText = `${data.avgLatencyMs || 0} ms`;
+          if (pendingEl) pendingEl.innerText = (data.totalPending || 0).toLocaleString();
+          if (navQueue) navQueue.innerText = (data.totalPending || 0).toLocaleString();
+          if (retryingEl) retryingEl.innerText = (data.totalRetrying || 0).toLocaleString();
+          if (throttledEl) throttledEl.innerText = (data.throttledCount || 0).toLocaleString();
+          if (devEl && data.activeDevicesCount !== undefined) devEl.innerText = data.activeDevicesCount;
+          if (dlqEl && data.totalDlq !== undefined) dlqEl.innerText = data.totalDlq;
+
+          // Hardware Load Guard Elements
+          const hdrCpu = document.getElementById('hdrCpuVal');
+          const hdrRam = document.getElementById('hdrRamVal');
+          const hdrHwState = document.getElementById('hdrHwState');
+          const hwBadge = document.getElementById('hardwareStatusBadge');
+          const btnOK = document.getElementById('btnSimulateOK');
+          const btn85 = document.getElementById('btnSimulate85');
+          const btn95 = document.getElementById('btnSimulate95');
+          const btnOff = document.getElementById('btnSimulateOff');
+
+          if (hdrCpu && data.cpuUsagePercent !== undefined) hdrCpu.innerText = `${data.cpuUsagePercent}%`;
+          if (hdrRam && data.ramUsagePercent !== undefined) hdrRam.innerText = `${data.ramUsagePercent}%`;
+          if (hdrHwState && data.hardwareState) {
+            hdrHwState.innerText = data.hardwareState;
+            if (hwBadge) {
+              if (data.hardwareState === 'CRITICAL_CUTOFF' || data.hardwareState === 'THROTTLED') {
+                hwBadge.className = 'badge badge-danger';
+              } else if (data.hardwareState === 'WARNING') {
+                hwBadge.className = 'badge badge-warning';
+              } else {
+                hwBadge.className = 'badge badge-success';
+              }
+            }
+          }
+          if (btnOff) btnOff.style.display = data.simulationActive ? 'inline-block' : 'none';
+          if (btnOK) {
+            const isOK = data.simulationActive && data.cpuUsagePercent < 70;
+            btnOK.classList.toggle('btn-success', isOK);
+            btnOK.classList.toggle('btn-secondary', !isOK);
+          }
+          if (btn85) {
+            const is85 = data.simulationActive && data.cpuUsagePercent >= 70 && data.cpuUsagePercent < 95;
+            btn85.classList.toggle('btn-warning', is85);
+            btn85.classList.toggle('btn-secondary', !is85);
+          }
+          if (btn95) {
+            const is95 = data.simulationActive && data.cpuUsagePercent >= 95;
+            btn95.classList.toggle('btn-danger', is95);
+            btn95.classList.toggle('btn-secondary', !is95);
+          }
+        }
+
+        // 2. Queues & Priority breakdown
+        const resQueues = await fetch('/api/v1/dashboard/queues');
+        if (resQueues.ok) {
+          const qData = await resQueues.json();
+          const pTbody = document.getElementById('priorityTableBody');
+          if (pTbody && qData.byPriority) {
+            pTbody.innerHTML = qData.byPriority.map(p => `
+              <tr>
+                <td><b style="color: ${p.priority === 'CRITICAL' ? 'var(--danger-text)' : p.priority === 'HIGH' ? 'var(--warning-text)' : 'var(--cyan-text)'};">${p.priority}</b></td>
+                <td><span style="color: ${p.pending > 0 ? 'var(--cyan-text)' : 'var(--text-muted)'};">${p.pending}</span></td>
+                <td><span style="color: var(--success-text);">${p.delivered}</span></td>
+                <td><span style="color: ${p.failed > 0 ? 'var(--danger-text)' : 'var(--text-muted)'};">${p.failed}</span></td>
+                <td><span style="color: ${p.dlq > 0 ? 'var(--warning-text)' : 'var(--text-muted)'};">${p.dlq}</span></td>
+              </tr>
+            `).join('');
+          }
+        }
+
+        // 3. Provider health
+        const resProviders = await fetch('/api/v1/dashboard/providers');
+        if (resProviders.ok) {
+          const provData = await resProviders.json();
+          const provContainer = document.getElementById('providerHealthContainer');
+          if (provContainer && provData.providers) {
+            provContainer.innerHTML = provData.providers.map(pv => {
+              const isClosed = pv.circuitBreakerState === 'CLOSED';
+              const stateClass = isClosed ? 'badge-success' : pv.circuitBreakerState === 'HALF_OPEN' ? 'badge-warning' : 'badge-danger';
+              return `
+                <div style="background: #111317; border: 1px solid var(--border-subtle); border-radius: 4px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <div>
+                    <div style="font-weight: 600; color: #fff; font-size: 11px;">${escapeHtml(pv.name)}</div>
+                    <div style="font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px;">
+                      Channel: ${pv.channel} | Rate: ${pv.rateLimitRefillRate}/s | Mode: <span style="color: var(--cyan-text);">${pv.simulationMode}</span>
+                    </div>
+                  </div>
+                  <span class="badge ${stateClass}">${pv.circuitBreakerState}</span>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+      } catch (e) {
+        console.warn('Dashboard fetch error:', e);
+      }
+    }
+
+    async function setSimulateLoad(enable, cpu = 35.0, ram = 40.0) {
+      try {
+        const res = await fetch(`/api/v1/dashboard/simulate-load?enabled=${enable}&cpu=${cpu}&ram=${ram}`, {
+          method: 'POST'
+        });
+        if (res.ok) {
+          const stateLabel = !enable ? 'TẮT (Dùng tải máy thật)' : (cpu >= 95 ? '97% CPU (CRITICAL_CUTOFF)' : cpu >= 85 ? '88% CPU (THROTTLED)' : '35% CPU (BÌNH THƯỜNG / OK)');
+          log(`[LOAD-GUARD] Đã đặt mô phỏng tải: ${stateLabel}`, enable ? (cpu >= 95 ? 'danger' : cpu >= 85 ? 'warning' : 'success') : 'info');
+          
+          if (!enable) {
+            showAdminPushToast('HỆ THỐNG PHỤC HỒI', 'Đã tắt mô phỏng tải. Hệ thống chuyển về đọc cảm biến phần cứng thực tế.', 'success');
+          } else if (cpu >= 95) {
+            showAdminPushToast('[CẢNH BÁO] QUÁ TẢI KHẨN CẤP (97% CPU)', 'Kích hoạt Emergency Hard Cutoff: Hệ thống từ chối 100% notification dispatch (HTTP 503) và tạm dừng Outbox worker để bảo vệ máy chủ.', 'danger');
+          } else if (cpu >= 85) {
+            showAdminPushToast('[CẢNH BÁO] TẢI CAO (88% CPU)', 'Kích hoạt Throttling: Hệ thống từ chối tin LOW/NORMAL (HTTP 429), chỉ cho phép tin HIGH/CRITICAL.', 'warning');
+          } else {
+            showAdminPushToast('[THÔNG TIN] MÔ PHỎNG TẢI ỔN ĐỊNH (35% CPU)', 'Hệ thống hoạt động ở trạng thái bình thường (NORMAL), tiếp nhận 100% traffic.', 'info');
+          }
+
+          await fetchDashboardData();
+        }
+      } catch (e) {
+        log(`[ERROR] Không thể đổi chế độ mô phỏng: ${e.message}`, 'danger');
+        showAdminPushToast('LỖI KÍCH HOẠT MÔ PHỎNG', e.message, 'danger');
+      }
+    }
+
+      function refreshAllData() {
+        fetchDashboardData();
+        fetchDlqList();
+        fetchCircuitBreakerStatus();
+        fetchActiveDevices();
+      }
+
+
+    // =========================================================================
+    // ADMIN PUSH NOTIFICATION (FCM) INTEGRATION
+    // =========================================================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyDGT8G9gzkenTw0siY_n4-in3DBYmqV16w",
+      authDomain: "notification-a0c90.firebaseapp.com",
+      projectId: "notification-a0c90",
+      storageBucket: "notification-a0c90.firebasestorage.app",
+      messagingSenderId: "595475668363",
+      appId: "1:595475668363:web:f783a787f8069b687ca38e"
+    };
+
+    let adminFcmToken = null;
+
+    function showAdminPushToast(title, body, type = 'danger') {
+      const container = document.getElementById('adminToastContainer');
+      if (!container) return;
+      const borderColor = type === 'danger' ? '#c4162a' : (type === 'warning' ? '#d97706' : (type === 'success' ? '#16a34a' : '#2563eb'));
+      const titleColor = type === 'danger' ? '#f87171' : (type === 'warning' ? '#fbbf24' : (type === 'success' ? '#4ade80' : '#60a5fa'));
+      const toast = document.createElement('div');
+      toast.style.cssText = `background: #181b1f; border: 1px solid ${borderColor}; border-radius: 8px; padding: 14px 18px; min-width: 340px; max-width: 440px; color: #f4f5f7; pointer-events: auto; font-family: Inter, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.5);`;
+      toast.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <strong style="color: ${titleColor}; font-size: 13px;">
+            <span>${escapeHtml(title)}</span>
+          </strong>
+          <span style="font-size: 11px; color: #9fa7b3;">${new Date().toLocaleTimeString()}</span>
+        </div>
+        <div style="font-size: 12px; color: #d8d9da; line-height: 1.4;">${escapeHtml(body)}</div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.5s';
+        setTimeout(() => toast.remove(), 500);
+      }, 8000);
+    }
+
+    async function initAdminPushRegistration(forcePrompt = false) {
+      const btn = document.getElementById('btnAdminPushToggle');
+      try {
+        if (!('serviceWorker' in navigator) || typeof firebase === 'undefined') {
+          if (btn) btn.innerText = 'Push: Không hỗ trợ';
+          return;
+        }
+
+        if (Notification.permission !== 'granted') {
+          if (!forcePrompt) {
+            if (btn) {
+              btn.innerText = 'Admin Push: Bật thông báo';
+              btn.className = 'btn btn-secondary btn-sm';
+            }
+            return;
+          }
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') {
+            if (btn) btn.innerText = 'Push: Bị từ chối';
+            alert('Trình duyệt đã từ chối quyền gửi thông báo. Hãy cho phép trong cài đặt trang web.');
+            return;
+          }
+        }
+
+        if (btn) {
+          btn.innerText = 'Đang kết nối FCM...';
+          btn.disabled = true;
+        }
+
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        await navigator.serviceWorker.ready;
+        if (registration.active) {
+          registration.active.postMessage({ type: 'SET_ROLE', role: 'ADMIN' });
+        }
+
+        const messaging = firebase.messaging();
+
+        // Lắng nghe Foreground message (khi tab admin đang mở)
+        messaging.onMessage((payload) => {
+          console.log('[Admin Console] Nhận push notification:', payload);
+          const title = payload.notification?.title || payload.data?.title || '';
+          const body = payload.notification?.body || payload.data?.body || payload.data?.content || '';
+
+          // ADMIN CHỈ NHẬN DUY NHẤT CẢNH BÁO HỆ THỐNG (phần cứng/overload/circuit breaker)
+          // isSystemAlert được đặt từ backend (FirebasePushNotificationProvider) dựa vào nội dung thông báo
+          // Fallback dùng title keywords nếu backend cũ chưa gắn flag
+          const isSystemAlert = (payload.data?.isSystemAlert === 'true') ||
+                                (title.toUpperCase().includes('CẢNH BÁO QUÁ TẢI')) ||
+                                (title.toUpperCase().includes('NGẮT KHẨN CẤP')) ||
+                                (title.toUpperCase().includes('HỆ THỐNG PHỤC HỒI')) ||
+                                title.includes('HARDWARE_OVERLOAD') ||
+                                title.includes('CIRCUIT_BREAKER');
+
+          if (!isSystemAlert) {
+            console.log('[Admin Console] Bỏ qua thông báo gửi tin người dùng thông thường:', title);
+            fetchDashboardData();
+            return;
+          }
+
+          showAdminPushToast(title, body, 'danger');
+          log(`[SYSTEM ALERT] ${title}: ${body}`, 'danger');
+
+          // Browser OS notification
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification(title, {
+                body: body,
+                icon: 'https://firebase.google.com/favicon.ico'
+              });
+            } catch (e) {
+              console.warn('Browser system notification blocked:', e);
+            }
+          }
+
+          // Cập nhật lại số liệu dashboard ngay lập tức
+          fetchDashboardData();
+        });
+
+        // Lấy FCM Token và đăng ký lên backend dưới tên userId = admin
+        const token = await messaging.getToken({ serviceWorkerRegistration: registration });
+        if (token) {
+          adminFcmToken = token;
+          await fetch('/api/v1/devices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: 'admin',
+              deviceToken: token,
+              platform: 'WEB'
+            })
+          });
+
+          console.log('[Admin Console] Đã đăng ký device token cho userId: admin');
+          if (btn) {
+            btn.innerText = 'Admin Push: Đã kết nối (admin)';
+            btn.className = 'btn btn-success btn-sm';
+            btn.disabled = false;
+            btn.title = 'FCM Web Push token đã được đăng ký cho userId: admin. Bấm để đăng ký lại.';
+          }
+        }
+      } catch (err) {
+        console.error('[Admin Push Error]', err);
+        if (btn) {
+          btn.innerText = 'Push: Thử lại';
+          btn.disabled = false;
+        }
+      }
+    }
+
+    function toggleAdminPushAlerts() {
+      initAdminPushRegistration(true);
+    }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        if (Notification.permission === 'granted') initAdminPushRegistration(false);
+        refreshAllData();
+        setInterval(fetchDashboardData, 3000);
+        setInterval(fetchCircuitBreakerStatus, 3000);
+        setInterval(fetchActiveDevices, 5000);
+      });
+  </script>
+</body>
+
+</html>

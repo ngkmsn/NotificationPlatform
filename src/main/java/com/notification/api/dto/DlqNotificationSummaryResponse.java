@@ -17,6 +17,7 @@ public class DlqNotificationSummaryResponse {
     private NotificationStatus status;
     private String provider;
     private Integer retryCount;
+    private String errorMessage;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
@@ -26,6 +27,13 @@ public class DlqNotificationSummaryResponse {
     public DlqNotificationSummaryResponse(UUID id, String recipient, Channel channel, String subject,
                                          Priority priority, NotificationStatus status, String provider,
                                          Integer retryCount, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+        this(id, recipient, channel, subject, priority, status, provider, retryCount, createdAt, updatedAt, null);
+    }
+
+    public DlqNotificationSummaryResponse(UUID id, String recipient, Channel channel, String subject,
+                                         Priority priority, NotificationStatus status, String provider,
+                                         Integer retryCount, OffsetDateTime createdAt, OffsetDateTime updatedAt,
+                                         String errorMessage) {
         this.id = id;
         this.recipient = recipient;
         this.channel = channel;
@@ -36,6 +44,7 @@ public class DlqNotificationSummaryResponse {
         this.retryCount = retryCount;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.errorMessage = errorMessage;
     }
 
     public UUID getId() {
@@ -116,5 +125,13 @@ public class DlqNotificationSummaryResponse {
 
     public void setUpdatedAt(OffsetDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 }

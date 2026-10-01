@@ -42,6 +42,9 @@ public class OutboxPublisher {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    com.notification.guard.SystemLoadGuard systemLoadGuard;
+
     @ConfigProperty(name = "outbox.publisher.enabled", defaultValue = "true")
     boolean enabled;
 
@@ -59,54 +62,87 @@ public class OutboxPublisher {
     }
 
     public int processPendingEvents() {
-        List<OutboxEvent> pendingEvents = outboxEventRepository.findDuePendingEvents(batchSize);
+        // Emergency Cutoff (95% load): Pause background publishing for general traffic,
+        // BUT allow a Lifeboat Fast-Path for CRITICAL emergency alerts (e.g. Admin Warning/Cutoff notifications)
+        if (systemLoadGuard != null && systemLoadGuard.isCutoff()) {
+            List<OutboxEvent> dueEvents = outboxEventRepository.findDuePendingEvents(10);
+            List<OutboxEvent> criticalEvents = dueEvents.stream()
+                    .filter(this::isCriticalEvent)
+                    .limit(2)
+                    .toList();
+            if (criticalEvents.isEmpty()) {
+                LOG.warnf("🚨 [OUTBOX PAUSED] SystemLoadGuard in CRITICAL_CUTOFF (CPU: %.1f%%, RAM: %.1f%%). Pausing OutboxPublisher for normal traffic.",
+                        systemLoadGuard.getCurrentCpuUsage(), systemLoadGuard.getCurrentRamUsage());
+                return 0;
+            }
+            LOG.infof("🚨 [LIFEBOAT DISPATCH] SystemLoadGuard in CRITICAL_CUTOFF, dispatching %d CRITICAL emergency event(s) to notify admin.",
+                    criticalEvents.size());
+            return publishEvents(criticalEvents);
+        }
+
+        // Adaptively reduce batch size when hardware load is throttled (85%) to reduce I/O pressure
+        int effectiveBatchSize = (systemLoadGuard != null && systemLoadGuard.isThrottled())
+                ? Math.max(5, batchSize / 5)
+                : batchSize;
+
+        List<OutboxEvent> pendingEvents = outboxEventRepository.findDuePendingEvents(effectiveBatchSize);
         if (pendingEvents.isEmpty()) {
             return 0;
         }
 
         LOG.debugf("Found %d pending outbox event(s) to publish", pendingEvents.size());
-        int publishedCount = 0;
-
-        for (OutboxEvent event : pendingEvents) {
-            boolean success = publishSingleEvent(event);
-            if (success) {
-                publishedCount++;
-            }
-        }
-
-        return publishedCount;
+        return publishEvents(pendingEvents);
     }
 
-    private boolean publishSingleEvent(OutboxEvent event) {
-        String topic = resolveTopic(event);
-        String key = event.getAggregateId() != null ? event.getAggregateId().toString() : event.getId().toString();
-        String payload = event.getPayload();
-
+    private boolean isCriticalEvent(OutboxEvent event) {
+        if (event == null || event.getPayload() == null) {
+            return false;
+        }
         try {
-            LOG.debugf("Publishing outbox event [%s] (aggregate: %s) to topic [%s]", event.getId(), key, topic);
-            Future<RecordMetadata> future = kafkaProducerService.send(topic, key, payload);
-
-            // Wait for broker ACK confirmation
-            RecordMetadata metadata = future.get(5, TimeUnit.SECONDS);
-
-            LOG.debugf("Event [%s] published to [%s:%d] at offset %d",
-                    event.getId(), metadata.topic(), metadata.partition(), metadata.offset());
-
-            // Mark event as PUBLISHED in atomic independent transaction
-            markAsPublished(event.getId());
-            return true;
-
+            JsonNode node = objectMapper.readTree(event.getPayload());
+            String priorityStr = node.path("priority").asText("");
+            return "CRITICAL".equalsIgnoreCase(priorityStr);
         } catch (Exception e) {
-            LOG.errorf(e, "Failed to publish outbox event [%s] to topic [%s]. Event will remain PENDING.", event.getId(), topic);
             return false;
         }
     }
 
-    public void markAsPublished(UUID outboxEventId) {
-        QuarkusTransaction.requiringNew().run(() -> {
-            outboxEventRepository.update("status = ?1, publishedAt = ?2 WHERE id = ?3 AND status = ?4",
-                    OutboxStatus.PUBLISHED, OffsetDateTime.now(), outboxEventId, OutboxStatus.PENDING);
-        });
+    private int publishEvents(List<OutboxEvent> events) {
+        List<UUID> successfulIds = new java.util.ArrayList<>();
+        List<java.util.Map.Entry<OutboxEvent, Future<RecordMetadata>>> inFlight = new java.util.ArrayList<>();
+
+        // 1. Asynchronously dispatch all messages to Kafka producer buffer
+        for (OutboxEvent event : events) {
+            String topic = resolveTopic(event);
+            String key = event.getAggregateId() != null ? event.getAggregateId().toString() : event.getId().toString();
+            String payload = event.getPayload();
+            try {
+                Future<RecordMetadata> future = kafkaProducerService.send(topic, key, payload);
+                inFlight.add(new java.util.AbstractMap.SimpleEntry<>(event, future));
+            } catch (Exception e) {
+                LOG.errorf(e, "Failed to initiate send for outbox event [%s]", event.getId());
+            }
+        }
+
+        // 2. Await broker ACKs
+        for (java.util.Map.Entry<OutboxEvent, Future<RecordMetadata>> entry : inFlight) {
+            OutboxEvent event = entry.getKey();
+            try {
+                RecordMetadata metadata = entry.getValue().get(5, TimeUnit.SECONDS);
+                successfulIds.add(event.getId());
+            } catch (Exception e) {
+                LOG.errorf(e, "Failed to confirm broker ACK for outbox event [%s]. Will remain PENDING.", event.getId());
+            }
+        }
+
+        // 3. Batch update Outbox table in single atomic transaction
+        if (!successfulIds.isEmpty()) {
+            QuarkusTransaction.requiringNew().run(() -> {
+                outboxEventRepository.markBatchAsPublished(successfulIds);
+            });
+        }
+
+        return successfulIds.size();
     }
 
     public String resolveTopic(OutboxEvent event) {

@@ -50,22 +50,22 @@ public class NotificationProcessor {
     private static final Logger LOG = Logger.getLogger(NotificationProcessor.class);
 
     @Inject
-    NotificationRepository notificationRepository;
+    public NotificationRepository notificationRepository;
 
     @Inject
-    NotificationAttemptRepository notificationAttemptRepository;
+    public NotificationAttemptRepository notificationAttemptRepository;
 
     @Inject
-    OutboxEventRepository outboxEventRepository;
+    public OutboxEventRepository outboxEventRepository;
 
     @Inject
-    ProviderRegistry providerRegistry;
+    public ProviderRegistry providerRegistry;
 
     @Inject
-    NotificationMetrics notificationMetrics;
+    public NotificationMetrics notificationMetrics;
 
     @Inject
-    TokenBucketRateLimiter tokenBucketRateLimiter;
+    public TokenBucketRateLimiter tokenBucketRateLimiter;
 
     @Inject
     public CircuitBreaker circuitBreaker;
@@ -77,7 +77,7 @@ public class NotificationProcessor {
     public RetryPolicy retryPolicy;
 
     @Inject
-    ObjectMapper objectMapper;
+    public ObjectMapper objectMapper;
 
     @ConfigProperty(name = "ratelimit.worker.enabled", defaultValue = "true")
     public boolean rateLimitEnabled = true;
@@ -335,6 +335,10 @@ public class NotificationProcessor {
 
                     if (notificationMetrics != null) {
                         notificationMetrics.recordDelivered(notification.getChannel(), provider.getName());
+                        if (notification.getCreatedAt() != null) {
+                            Duration e2eDuration = Duration.between(notification.getCreatedAt(), completedAt);
+                            notificationMetrics.recordEndToEndLatency(notification.getChannel(), notification.getPriority(), e2eDuration);
+                        }
                     }
 
                     // Create successful NotificationAttempt
